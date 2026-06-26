@@ -1,0 +1,14 @@
+# secrets & tokens — NEVER commit
+.env
+.env.*
+!.env.example
+tokens.json
+*tok*.json
+
+# node
+node_modules/
+npm-debug.log*
+
+# misc
+.DS_Store
+*.log
