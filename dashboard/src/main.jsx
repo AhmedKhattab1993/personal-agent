@@ -1,0 +1,329 @@
+import React, { useEffect, useMemo, useState } from 'react';
+import { createRoot } from 'react-dom/client';
+import {
+  AlertCircle,
+  ArrowUpRight,
+  Bot,
+  BriefcaseBusiness,
+  CheckCircle2,
+  Clock,
+  DatabaseZap,
+  RefreshCcw,
+  Search,
+  SlidersHorizontal,
+  TrendingUp,
+} from 'lucide-react';
+
+import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Select } from './components/ui.jsx';
+import './styles.css';
+
+const LANES = [
+  {
+    id: 'trading',
+    label: 'Trading',
+    icon: TrendingUp,
+    color: 'border-l-sky-600',
+    badge: 'bg-sky-50 text-sky-700 border-sky-200',
+  },
+  {
+    id: 'ai-agents',
+    label: 'AI Agents',
+    icon: Bot,
+    color: 'border-l-violet-600',
+    badge: 'bg-violet-50 text-violet-700 border-violet-200',
+  },
+  {
+    id: 'automation',
+    label: 'Automation',
+    icon: DatabaseZap,
+    color: 'border-l-emerald-600',
+    badge: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  },
+];
+
+function formatDate(value) {
+  if (!value) return 'Unknown';
+  return new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(new Date(value));
+}
+
+function jobSnippet(description) {
+  if (!description) return 'No description available.';
+  const normalized = description.replace(/\s+/g, ' ').trim();
+  return normalized.length > 280 ? `${normalized.slice(0, 280)}...` : normalized;
+}
+
+function laneMeta(laneId) {
+  return LANES.find((lane) => lane.id === laneId) ?? LANES[0];
+}
+
+function statusVariant(status) {
+  if (status === 'new') return 'success';
+  if (status === 'stale') return 'warning';
+  return 'secondary';
+}
+
+function App() {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(null);
+  const [query, setQuery] = useState('');
+  const [lane, setLane] = useState('all');
+  const [status, setStatus] = useState('all');
+  const [limit, setLimit] = useState(200);
+
+  async function loadJobs() {
+    setError(null);
+    const response = await fetch('/api/jobs');
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error ?? 'Failed to load jobs');
+    setData(payload);
+  }
+
+  async function refreshJobs() {
+    setRefreshing(true);
+    setError(null);
+    try {
+      const response = await fetch('/api/jobs/refresh', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ limit }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error ?? 'Failed to refresh jobs');
+      setData(payload);
+    } catch (refreshError) {
+      setError(refreshError.message);
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
+  useEffect(() => {
+    loadJobs()
+      .catch((loadError) => setError(loadError.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const jobs = data?.jobs ?? [];
+  const filteredJobs = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    return jobs.filter((job) => {
+      if (lane !== 'all' && job.laneId !== lane) return false;
+      if (status !== 'all' && job.status !== status) return false;
+      if (!needle) return true;
+      const haystack = [
+        job.title,
+        job.description,
+        job.lane,
+        ...(job.skills ?? []),
+        ...(job.laneMatches ?? []),
+      ].join(' ').toLowerCase();
+      return haystack.includes(needle);
+    });
+  }, [jobs, lane, query, status]);
+
+  const newest = jobs[0]?.publishedDateTime ?? data?.summary?.generatedAt;
+  const laneCounts = data?.summary?.laneCounts ?? {};
+  const statusCounts = data?.summary?.statusCounts ?? {};
+
+  return (
+    <main className="min-h-screen px-4 py-5 sm:px-6 lg:px-8">
+      <div className="mx-auto flex max-w-7xl flex-col gap-5">
+        <section className="flex flex-col gap-4 rounded-lg border bg-card/90 p-5 shadow-sm backdrop-blur md:flex-row md:items-center md:justify-between">
+          <div className="max-w-3xl">
+            <div className="mb-2 flex flex-wrap items-center gap-2">
+              <Badge variant="outline" className="bg-white">Upwork API</Badge>
+              <Badge variant="secondary">Three-lane positioning</Badge>
+            </div>
+            <h1 className="text-2xl font-semibold tracking-normal sm:text-3xl">Latest Upwork lane dashboard</h1>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+              Jobs are fetched from Upwork&apos;s latest software-development feed, filtered to Trading, AI Agents, and Automation, then reconciled into a local cache.
+            </p>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <Select value={limit} onChange={(event) => setLimit(Number(event.target.value))} className="w-full sm:w-32">
+              <option value={50}>50 jobs</option>
+              <option value={100}>100 jobs</option>
+              <option value={200}>200 jobs</option>
+              <option value={500}>500 jobs</option>
+            </Select>
+            <Button onClick={refreshJobs} disabled={refreshing}>
+              <RefreshCcw className={refreshing ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} />
+              {refreshing ? 'Refreshing' : 'Refresh'}
+            </Button>
+          </div>
+        </section>
+
+        {error && (
+          <Card className="border-red-200 bg-red-50 text-red-900">
+            <CardContent className="flex items-start gap-3 p-4">
+              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
+              <div>
+                <p className="font-medium">Dashboard error</p>
+                <p className="mt-1 text-sm">{error}</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        <section className="grid gap-4 md:grid-cols-3">
+          {LANES.map((item) => {
+            const Icon = item.icon;
+            return (
+              <Card key={item.id} className={`border-l-4 ${item.color}`}>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2">
+                      <Icon className="h-5 w-5" />
+                      {item.label}
+                    </CardTitle>
+                    <span className="text-2xl font-semibold">{laneCounts[item.label] ?? 0}</span>
+                  </div>
+                  <CardDescription>
+                    {item.id === 'trading' && 'Broker APIs, backtesting, Pine Script, dashboards.'}
+                    {item.id === 'ai-agents' && 'Chatbot, Claude, OpenAI, RAG, workflow agents.'}
+                    {item.id === 'automation' && 'APIs, pipelines, alerts, reports, process automation.'}
+                  </CardDescription>
+                </CardHeader>
+              </Card>
+            );
+          })}
+        </section>
+
+        <section className="grid gap-4 lg:grid-cols-[1fr_20rem]">
+          <Card>
+            <CardContent className="grid gap-3 p-4 md:grid-cols-[1fr_12rem_12rem]">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Search title, description, skills, lane matches..."
+                  className="pl-9"
+                />
+              </div>
+              <Select value={lane} onChange={(event) => setLane(event.target.value)}>
+                <option value="all">All lanes</option>
+                {LANES.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+              </Select>
+              <Select value={status} onChange={(event) => setStatus(event.target.value)}>
+                <option value="all">All statuses</option>
+                <option value="new">New</option>
+                <option value="active">Active</option>
+                <option value="stale">Stale</option>
+              </Select>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="grid grid-cols-3 gap-3 p-4 text-center">
+              <div>
+                <p className="text-xs text-muted-foreground">Visible</p>
+                <p className="text-xl font-semibold">{filteredJobs.length}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">New</p>
+                <p className="text-xl font-semibold">{statusCounts.new ?? 0}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Latest</p>
+                <p className="text-sm font-medium">{formatDate(newest)}</p>
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+
+        {loading ? (
+          <Card>
+            <CardContent className="flex items-center gap-3 p-6 text-muted-foreground">
+              <RefreshCcw className="h-4 w-4 animate-spin" />
+              Loading dashboard cache...
+            </CardContent>
+          </Card>
+        ) : (
+          <section className="grid gap-4">
+            {filteredJobs.map((job) => {
+              const meta = laneMeta(job.laneId);
+              return (
+                <Card key={job.id} className={`overflow-hidden border-l-4 ${meta.color}`}>
+                  <CardHeader className="gap-3">
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                      <div className="min-w-0">
+                        <div className="mb-2 flex flex-wrap items-center gap-2">
+                          <Badge className={meta.badge}>{job.lane}</Badge>
+                          <Badge variant={statusVariant(job.status)}>{job.status}</Badge>
+                          {job.budget && <Badge variant="outline">{job.budget}</Badge>}
+                          {job.experienceLevel && <Badge variant="outline">{job.experienceLevel}</Badge>}
+                        </div>
+                        <CardTitle className="text-lg leading-6">{job.title}</CardTitle>
+                        <CardDescription className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
+                          <span className="inline-flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> {formatDate(job.publishedDateTime)}</span>
+                          {job.client?.country && <span>{job.client.country}{job.client.city ? `, ${job.client.city}` : ''}</span>}
+                          {job.totalApplicants !== null && <span>{job.totalApplicants} applicants</span>}
+                        </CardDescription>
+                      </div>
+                      {job.url && (
+                        <Button as="a" variant="outline" size="sm" onClick={() => window.open(job.url, '_blank', 'noopener,noreferrer')}>
+                          Open
+                          <ArrowUpRight className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </CardHeader>
+                  <CardContent className="grid gap-4">
+                    <p className="text-sm leading-6 text-muted-foreground">{jobSnippet(job.description)}</p>
+                    <div className="grid gap-3 lg:grid-cols-3">
+                      <div className="rounded-md border bg-muted/40 p-3">
+                        <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          <SlidersHorizontal className="h-3.5 w-3.5" />
+                          Lane signals
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {(job.laneMatches ?? []).slice(0, 6).map((match) => <Badge key={match} variant="outline">{match}</Badge>)}
+                        </div>
+                      </div>
+                      <div className="rounded-md border bg-muted/40 p-3">
+                        <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          <BriefcaseBusiness className="h-3.5 w-3.5" />
+                          Client
+                        </p>
+                        <div className="grid gap-1 text-sm">
+                          <span>Hires: {job.client?.hires ?? 'n/a'}</span>
+                          <span>Spent: {job.client?.spent ?? 'n/a'}</span>
+                          <span>Verified: {job.client?.verificationStatus ?? 'n/a'}</span>
+                        </div>
+                      </div>
+                      <div className="rounded-md border bg-muted/40 p-3">
+                        <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          Skills
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {(job.skills ?? []).slice(0, 7).map((skill) => <Badge key={skill} variant="secondary">{skill}</Badge>)}
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+            {filteredJobs.length === 0 && (
+              <Card>
+                <CardContent className="p-8 text-center text-muted-foreground">
+                  No jobs match the current filters.
+                </CardContent>
+              </Card>
+            )}
+          </section>
+        )}
+      </div>
+    </main>
+  );
+}
+
+createRoot(document.getElementById('root')).render(<App />);

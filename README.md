@@ -5,6 +5,7 @@ app credentials can fetch **job postings**.
 
 ## Prerequisites
 
+- Node.js 20.19+.
 - Your Upwork OAuth2 app registered at <https://www.upwork.com/developer>.
 - Its **redirect URI** must include `http://localhost:3000/callback` (the local
   server this app spins up during the one-time consent).
@@ -18,7 +19,11 @@ UPWORK_KEY=<oauth2 client id>
 UPWORK_SECRET=<oauth2 client secret>
 ```
 
-No dependencies to install — this uses Node 18+ built-ins only.
+Install dependencies before running the dashboard:
+
+```sh
+npm install
+```
 
 ## Usage
 
@@ -56,7 +61,22 @@ run walks 20 pages and writes JSONL plus a summary file under `data/`.
 Use [docs/classification-guide.md](docs/classification-guide.md) when assigning
 semantic trend tags to fetched jobs.
 
-### 4. Export proposal history
+### 4. Run the positioning dashboard
+
+```sh
+npm run dashboard
+```
+
+Open <http://127.0.0.1:5173>. The dashboard shows only jobs that match the
+three lanes in [docs/positioning-plan.md](docs/positioning-plan.md): Trading,
+AI Agents, and Automation.
+
+The **Refresh** button calls the Upwork API, fetches the latest software-dev
+jobs, filters out unrelated work, excludes trading jobs involving betting,
+prediction markets, Polymarket, or options trading, and reconciles the results
+into `data/dashboard-lane-jobs.json`.
+
+### 5. Export proposal history
 
 ```sh
 npm run proposals
@@ -77,7 +97,11 @@ posting details that the current OAuth app can read.
 | `src/auth.js`       | OAuth2 authorization-code flow + local callback server |
 | `src/tokenStore.js` | Save/load/expire-check the access+refresh tokens |
 | `src/client.js`     | GraphQL client with automatic token refresh |
+| `src/upworkJobs.js` | Shared latest-job GraphQL query and fetch helpers |
 | `src/fetchJobs.js`  | Native-recency software-development job exporter |
+| `src/dashboardServer.js` | Local dashboard server and API refresh endpoint |
+| `src/dashboardStore.js` | Lane-filtered dashboard cache and reconciliation logic |
+| `src/positioningLanes.js` | Trading / AI Agents / Automation lane classifier |
 | `src/fetchProposalHistory.js` | Freelancer proposal-history JSON exporter |
 | `src/me.js`         | Minimal auth smoke test |
 

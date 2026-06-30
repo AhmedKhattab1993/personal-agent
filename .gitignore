@@ -8,6 +8,7 @@ tokens.json
 # node
 node_modules/
 npm-debug.log*
+dashboard/dist/
 
 # generated data
 data/
