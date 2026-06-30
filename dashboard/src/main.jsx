@@ -23,21 +23,21 @@ const LANES = [
     label: 'Trading',
     icon: TrendingUp,
     color: 'border-l-sky-400',
-    badge: 'bg-sky-950/70 text-sky-200 border-sky-500/40',
+    badge: 'bg-sky-950/90 text-sky-100 border-sky-400/70',
   },
   {
     id: 'ai-agents',
     label: 'AI Agents',
     icon: Bot,
     color: 'border-l-violet-400',
-    badge: 'bg-violet-950/70 text-violet-200 border-violet-500/40',
+    badge: 'bg-violet-950/90 text-violet-100 border-violet-400/70',
   },
   {
     id: 'automation',
     label: 'Automation',
     icon: DatabaseZap,
     color: 'border-l-emerald-400',
-    badge: 'bg-emerald-950/70 text-emerald-200 border-emerald-500/40',
+    badge: 'bg-emerald-950/90 text-emerald-100 border-emerald-400/70',
   },
 ];
 
@@ -142,7 +142,7 @@ function App() {
               <Badge variant="secondary">Three-lane positioning</Badge>
             </div>
             <h1 className="text-2xl font-semibold tracking-normal sm:text-3xl">Latest Upwork lane dashboard</h1>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            <p className="mt-2 text-sm leading-6 text-slate-200">
               Jobs are fetched from Upwork&apos;s latest software-development feed, filtered to Trading, AI Agents, and Automation, then reconciled into a local cache.
             </p>
           </div>
@@ -276,7 +276,7 @@ function App() {
                     </div>
                   </CardHeader>
                   <CardContent className="grid gap-4">
-                    <p className="text-sm leading-6 text-muted-foreground">{jobSnippet(job.description)}</p>
+                    <p className="text-sm leading-6 text-slate-200">{jobSnippet(job.description)}</p>
                     <div className="grid gap-3 lg:grid-cols-3">
                       <div className="rounded-md border bg-muted/40 p-3">
                         <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
