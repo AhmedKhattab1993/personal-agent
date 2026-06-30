@@ -6,9 +6,11 @@ import {
   Bot,
   BriefcaseBusiness,
   CheckCircle2,
+  Clipboard,
   Clock,
   DatabaseZap,
   FileText,
+  MessageSquareText,
   RefreshCcw,
   Search,
   SlidersHorizontal,
@@ -94,6 +96,8 @@ function App() {
   const [status, setStatus] = useState('all');
   const [limit, setLimit] = useState(200);
   const [selectedJob, setSelectedJob] = useState(null);
+  const [coverLetterLoading, setCoverLetterLoading] = useState(false);
+  const [coverLetterError, setCoverLetterError] = useState(null);
 
   async function loadJobs() {
     setError(null);
@@ -122,6 +126,40 @@ function App() {
     }
   }
 
+  async function loadSuggestedCoverLetter(job, force = false) {
+    if (!job?.id || (!force && job.suggestedCoverLetter)) return;
+    setCoverLetterLoading(true);
+    setCoverLetterError(null);
+    try {
+      const response = await fetch(`/api/jobs/${encodeURIComponent(job.id)}/cover-letter`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ force }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error ?? 'Failed to generate cover letter');
+
+      setData((current) => {
+        if (!current) return current;
+        return {
+          ...current,
+          jobs: (current.jobs ?? []).map((item) => (item.id === job.id ? {
+            ...item,
+            suggestedCoverLetter: payload.suggestedCoverLetter,
+          } : item)),
+        };
+      });
+      setSelectedJob((current) => (current?.id === job.id ? {
+        ...current,
+        suggestedCoverLetter: payload.suggestedCoverLetter,
+      } : current));
+    } catch (generationError) {
+      setCoverLetterError(generationError.message);
+    } finally {
+      setCoverLetterLoading(false);
+    }
+  }
+
   useEffect(() => {
     loadJobs()
       .catch((loadError) => setError(loadError.message))
@@ -135,6 +173,16 @@ function App() {
     window.addEventListener('keydown', closeOnEscape);
     return () => window.removeEventListener('keydown', closeOnEscape);
   }, []);
+
+  useEffect(() => {
+    if (!selectedJob) {
+      setCoverLetterError(null);
+      return;
+    }
+    loadSuggestedCoverLetter(selectedJob).catch((generationError) => {
+      setCoverLetterError(generationError.message);
+    });
+  }, [selectedJob?.id]);
 
   const jobs = data?.jobs ?? [];
   const filteredJobs = useMemo(() => {
@@ -393,6 +441,51 @@ function App() {
                   {selectedJob.piClassification.rationale}
                 </div>
               )}
+              <div className="mb-4 rounded-md border bg-muted/40 p-3">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <p className="flex items-center gap-2 text-sm font-medium text-slate-100">
+                    <MessageSquareText className="h-4 w-4" />
+                    Suggested cover letter
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedJob.suggestedCoverLetter?.text && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => navigator.clipboard?.writeText(selectedJob.suggestedCoverLetter.text)}
+                      >
+                        <Clipboard className="h-4 w-4" />
+                        Copy
+                      </Button>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={coverLetterLoading}
+                      onClick={() => loadSuggestedCoverLetter(selectedJob, true)}
+                    >
+                      <RefreshCcw className={coverLetterLoading ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} />
+                      Regenerate
+                    </Button>
+                  </div>
+                </div>
+                {coverLetterLoading && !selectedJob.suggestedCoverLetter?.text && (
+                  <p className="text-sm text-muted-foreground">Generating with PI...</p>
+                )}
+                {coverLetterError && (
+                  <p className="text-sm leading-6 text-red-200">{coverLetterError}</p>
+                )}
+                {selectedJob.suggestedCoverLetter?.text && (
+                  <>
+                    <div className="whitespace-pre-wrap text-sm leading-7 text-slate-100">
+                      {selectedJob.suggestedCoverLetter.text}
+                    </div>
+                    <p className="mt-3 text-xs text-muted-foreground">
+                      {selectedJob.suggestedCoverLetter.model} - {formatDate(selectedJob.suggestedCoverLetter.generatedAt)}
+                    </p>
+                  </>
+                )}
+              </div>
               <div className="whitespace-pre-wrap text-sm leading-7 text-slate-100">
                 {selectedJob.description || 'No description available.'}
               </div>

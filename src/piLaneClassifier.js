@@ -1,24 +1,18 @@
-import { spawn } from 'node:child_process';
-
+import {
+  DEFAULT_PI_CLI_PATH,
+  DEFAULT_PI_MODEL,
+  DEFAULT_PI_THINKING,
+  DEFAULT_PI_TIMEOUT_MS,
+  compactText,
+  extractJsonValue,
+  parsePositiveInt,
+  runPiPrompt,
+} from './piCli.js';
 import { LANES } from './positioningLanes.js';
 
-const DEFAULT_MODEL = 'zai/glm-5.2';
-const DEFAULT_PI_CLI_PATH = '/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/dist/cli.js';
 const DEFAULT_CONCURRENCY = 4;
-const DEFAULT_TIMEOUT_MS = 180_000;
-const DEFAULT_THINKING = 'off';
 const MAX_DESCRIPTION_CHARS = 260;
 const VALID_LANE_IDS = new Set([...LANES.map((lane) => lane.id), 'reject']);
-
-function parsePositiveInt(value, fallback) {
-  const parsed = Number.parseInt(value, 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
-}
-
-function compactText(value, maxLength = MAX_DESCRIPTION_CHARS) {
-  const text = String(value ?? '').replace(/\s+/g, ' ').trim();
-  return text.length > maxLength ? `${text.slice(0, maxLength)}...` : text;
-}
 
 function skillNames(job) {
   return (job.skills ?? [])
@@ -51,28 +45,6 @@ Reject ordinary website/app builds, Shopify setup, pure design, mobile app dev, 
 Job=${JSON.stringify(item)}`;
 }
 
-function extractJsonValue(output) {
-  const trimmed = output.trim();
-  try {
-    return JSON.parse(trimmed);
-  } catch {
-    // Continue to extracting JSON from accidental code fences or surrounding text.
-  }
-
-  const arrayStart = trimmed.indexOf('[');
-  const arrayEnd = trimmed.lastIndexOf(']');
-  if (arrayStart !== -1 && arrayEnd > arrayStart) {
-    return JSON.parse(trimmed.slice(arrayStart, arrayEnd + 1));
-  }
-
-  const start = trimmed.indexOf('{');
-  const end = trimmed.lastIndexOf('}');
-  if (start === -1 || end === -1 || end <= start) {
-    throw new Error(`pi classifier did not return JSON: ${trimmed.slice(0, 500)}`);
-  }
-  return JSON.parse(trimmed.slice(start, end + 1));
-}
-
 function validateDecision(decision, jobId) {
   if (!decision || typeof decision !== 'object') {
     throw new Error(`pi classifier returned non-object decision for ${jobId}`);
@@ -94,92 +66,26 @@ function validateDecision(decision, jobId) {
   return { id, laneId, rationale };
 }
 
-function runPi(args, options) {
-  return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, args, {
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-    let stdout = '';
-    let stderr = '';
-    const timer = setTimeout(() => {
-      child.kill('SIGTERM');
-    }, options.timeoutMs);
-
-    child.stdout.on('data', (chunk) => {
-      stdout += chunk;
-    });
-    child.stderr.on('data', (chunk) => {
-      stderr += chunk;
-    });
-    child.on('error', (error) => {
-      clearTimeout(timer);
-      error.stdout = stdout;
-      error.stderr = stderr;
-      reject(error);
-    });
-    child.on('close', (code, signal) => {
-      clearTimeout(timer);
-      if (code === 0) {
-        resolve({ stdout, stderr });
-        return;
-      }
-      const error = new Error(`pi exited with code=${code ?? 'null'} signal=${signal ?? 'null'}`);
-      error.code = code;
-      error.signal = signal;
-      error.stdout = stdout;
-      error.stderr = stderr;
-      reject(error);
-    });
-  });
-}
-
 async function classifyOne(item, options) {
-  const model = options.model ?? DEFAULT_MODEL;
-  const piCliPath = options.piCliPath ?? process.env.PI_CLI_PATH ?? DEFAULT_PI_CLI_PATH;
+  const model = options.model ?? DEFAULT_PI_MODEL;
+  const piCliPath = options.piCliPath ?? DEFAULT_PI_CLI_PATH;
   let lastJsonError = null;
 
   for (let attempt = 1; attempt <= 2; attempt += 1) {
     const prompt = promptForJob(item, attempt > 1);
-    let result;
-    try {
-      result = await runPi([
-        piCliPath,
-        '--model',
-        model,
-        '--thinking',
-        options.thinking ?? DEFAULT_THINKING,
-        '--no-tools',
-        '--no-context-files',
-        '--no-session',
-        '--approve',
-        '-p',
-        prompt,
-      ], {
-        timeoutMs: options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
-      });
-    } catch (error) {
-      const stderr = compactText(error.stderr, 1200);
-      const stdout = compactText(error.stdout, 1200);
-      const details = [
-        `pi classifier failed for job ${item.id}`,
-        `model=${model}`,
-        `cli=${piCliPath}`,
-        error.signal ? `signal=${error.signal}` : null,
-        error.code ? `code=${error.code}` : null,
-        stderr ? `stderr=${stderr}` : null,
-        stdout ? `stdout=${stdout}` : null,
-      ].filter(Boolean).join('; ');
-      throw new Error(details);
-    }
+    const result = await runPiPrompt(prompt, {
+      model,
+      piCliPath,
+      thinking: options.thinking ?? DEFAULT_PI_THINKING,
+      timeoutMs: options.timeoutMs ?? DEFAULT_PI_TIMEOUT_MS,
+    }).catch((error) => {
+      throw new Error(error.message.replace('pi failed', `pi classifier failed for job ${item.id}`));
+    });
 
-    const { stdout, stderr } = result;
     try {
-      const value = extractJsonValue(stdout);
+      const value = extractJsonValue(result.stdout);
       const decision = validateDecision(Array.isArray(value) ? value[0] : value, item.id);
-      if (stderr.trim()) {
-        process.stderr.write(stderr);
-      }
-      return { ...decision, model };
+      return { ...decision, model: result.model };
     } catch (error) {
       lastJsonError = error;
       process.stderr.write(`PI lane retry ${attempt}/2 for ${item.id}: ${error.message}\n`);
@@ -193,7 +99,7 @@ export function buildPiClassificationItems(items) {
   return items.map(({ job, laneInfo }) => ({
     id: String(job.id),
     title: compactText(job.title, 240),
-    description: compactText(job.description),
+    description: compactText(job.description, MAX_DESCRIPTION_CHARS),
     skills: skillNames(job),
     keywordSignals: keywordSignals(laneInfo),
   }));
@@ -228,10 +134,10 @@ export function applyPiLaneDecision(laneInfo, decision) {
 
 export async function classifyLaneCandidatesWithPi(items, options = {}) {
   const concurrency = parsePositiveInt(options.concurrency ?? process.env.PI_LANE_CONCURRENCY, DEFAULT_CONCURRENCY);
-  const model = options.model ?? process.env.PI_LANE_MODEL ?? DEFAULT_MODEL;
+  const model = options.model ?? process.env.PI_LANE_MODEL ?? DEFAULT_PI_MODEL;
   const piCliPath = options.piCliPath ?? process.env.PI_CLI_PATH ?? DEFAULT_PI_CLI_PATH;
-  const timeoutMs = parsePositiveInt(options.timeoutMs ?? process.env.PI_LANE_TIMEOUT_MS, DEFAULT_TIMEOUT_MS);
-  const thinking = options.thinking ?? process.env.PI_LANE_THINKING ?? DEFAULT_THINKING;
+  const timeoutMs = parsePositiveInt(options.timeoutMs ?? process.env.PI_LANE_TIMEOUT_MS, DEFAULT_PI_TIMEOUT_MS);
+  const thinking = options.thinking ?? process.env.PI_LANE_THINKING ?? DEFAULT_PI_THINKING;
   const classificationItems = buildPiClassificationItems(items);
   const decisionsById = new Map();
   let nextIndex = 0;

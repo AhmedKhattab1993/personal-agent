@@ -4,7 +4,7 @@ import { existsSync } from 'node:fs';
 import { extname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import { loadDashboardJobs, refreshDashboardJobs } from './dashboardStore.js';
+import { loadDashboardJobs, refreshDashboardJobs, suggestCoverLetterForJob } from './dashboardStore.js';
 
 const PORT = Number(process.env.DASHBOARD_PORT ?? 5173);
 const HOST = process.env.DASHBOARD_HOST ?? '127.0.0.1';
@@ -47,6 +47,13 @@ async function handleApi(req, res) {
     const body = await readRequestJson(req);
     const limit = body.limit ?? url.searchParams.get('limit') ?? 200;
     return sendJson(res, 200, await refreshDashboardJobs(limit));
+  }
+  const coverLetterMatch = url.pathname.match(/^\/api\/jobs\/([^/]+)\/cover-letter$/);
+  if (req.method === 'POST' && coverLetterMatch) {
+    const body = await readRequestJson(req);
+    return sendJson(res, 200, await suggestCoverLetterForJob(decodeURIComponent(coverLetterMatch[1]), {
+      force: body.force === true || url.searchParams.get('force') === 'true',
+    }));
   }
   return sendJson(res, 404, { error: 'API route not found' });
 }

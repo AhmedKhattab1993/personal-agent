@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 
+import { generateCoverLetterWithPi } from './piCoverLetter.js';
 import { classifyLaneCandidatesWithPi } from './piLaneClassifier.js';
 import { classifyLane, LANES } from './positioningLanes.js';
 import { fetchLatestSoftwareJobs, parseLimit } from './upworkJobs.js';
@@ -104,6 +105,7 @@ function compactJob(job, laneInfo, existing = null, now = new Date().toISOString
     firstSeenAt: existing?.firstSeenAt ?? now,
     lastSeenAt: now,
     seenCount: (existing?.seenCount ?? 0) + 1,
+    suggestedCoverLetter: existing?.suggestedCoverLetter ?? null,
   };
 }
 
@@ -216,6 +218,42 @@ export async function refreshDashboardJobs(limitValue = DEFAULT_REFRESH_LIMIT) {
   };
   await writeJson(CACHE_PATH, state);
   return state;
+}
+
+export async function suggestCoverLetterForJob(jobId, options = {}) {
+  const state = await loadDashboardJobs();
+  const jobs = state.jobs ?? [];
+  const index = jobs.findIndex((job) => String(job.id) === String(jobId));
+  if (index === -1) {
+    throw new Error(`dashboard job not found: ${jobId}`);
+  }
+
+  const job = jobs[index];
+  if (job.suggestedCoverLetter && !options.force) {
+    return {
+      jobId: job.id,
+      suggestedCoverLetter: job.suggestedCoverLetter,
+    };
+  }
+
+  const suggestedCoverLetter = await generateCoverLetterWithPi(job);
+  const updatedJob = {
+    ...job,
+    suggestedCoverLetter,
+  };
+  const updatedJobs = [...jobs];
+  updatedJobs[index] = updatedJob;
+  const updatedState = {
+    ...state,
+    jobs: updatedJobs,
+    summary: summarize(updatedJobs, state.summary?.source ?? 'cache', state.summary?.fetchedCount ?? null),
+  };
+  await writeJson(CACHE_PATH, updatedState);
+  return {
+    jobId: job.id,
+    suggestedCoverLetter,
+    job: updatedJob,
+  };
 }
 
 function compactJobToRawJob(job) {
