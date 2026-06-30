@@ -3,7 +3,8 @@ import { graphql } from './client.js';
 export const SOFTWARE_DEV_CATEGORY_ID = '531770282580668418';
 export const SOFTWARE_DEV_CATEGORY_NAME = 'Web, Mobile & Software Dev';
 export const PAGE_SIZE = 50;
-const SUPPLEMENTAL_SEARCH_PAGE_SIZE = 25;
+const POSITIONING_SEARCH_PAGE_SIZE = 50;
+export const POSITIONING_SEARCH_SOURCE = 'upwork.graphql.marketplaceJobPostingsSearch+positioningKeywordSearches';
 const POSITIONING_SEARCH_EXPRESSIONS = [
   'backtesting trading',
   'back-testing trading',
@@ -11,6 +12,18 @@ const POSITIONING_SEARCH_EXPRESSIONS = [
   'Pine Script TradingView',
   'broker API trading',
   'market data trading',
+  'AI agent workflow',
+  'Claude automation',
+  'OpenAI chatbot',
+  'RAG agent',
+  'LangChain agent',
+  'CRM agent',
+  'workflow automation',
+  'Zapier automation',
+  'Make.com automation',
+  'n8n automation',
+  'API integration automation',
+  'data pipeline automation',
 ];
 
 export const JOB_QUERY = /* GraphQL */ `
@@ -151,7 +164,11 @@ function dedupeJobs(jobs) {
   return [...byId.values()];
 }
 
-async function fetchSearchExpressionJobs(searchExpression, first = SUPPLEMENTAL_SEARCH_PAGE_SIZE) {
+function isAfterDate(job, sinceDate) {
+  return new Date(job.publishedDateTime ?? 0) > sinceDate;
+}
+
+async function fetchSearchExpressionJobs(searchExpression, first = POSITIONING_SEARCH_PAGE_SIZE) {
   const variables = {
     filter: {
       searchExpression_eq: searchExpression,
@@ -168,6 +185,48 @@ async function fetchSearchExpressionJobs(searchExpression, first = SUPPLEMENTAL_
     searchExpression,
     totalCount: result.totalCount,
     jobs: result.edges?.map((edge) => edge.node) ?? [],
+  };
+}
+
+async function fetchRecentSearchExpressionJobs(searchExpression, sinceDate) {
+  const jobs = [];
+  let after = '0';
+  let totalCount = null;
+
+  while (true) {
+    const variables = {
+      filter: {
+        searchExpression_eq: searchExpression,
+        pagination_eq: { after, first: POSITIONING_SEARCH_PAGE_SIZE },
+      },
+      sort: [{ field: 'RECENCY' }],
+    };
+    const data = await graphql(JOB_QUERY, variables);
+    const result = data?.marketplaceJobPostingsSearch;
+    if (!result) {
+      throw new Error(`missing marketplaceJobPostingsSearch result for ${searchExpression}`);
+    }
+
+    totalCount ??= result.totalCount;
+    const batch = result.edges?.map((edge) => edge.node) ?? [];
+    jobs.push(...batch.filter((job) => isAfterDate(job, sinceDate)));
+
+    const reachedSinceDate = batch.some((job) => !isAfterDate(job, sinceDate));
+    if (
+      reachedSinceDate
+      || !result.pageInfo?.hasNextPage
+      || !result.pageInfo.endCursor
+      || batch.length === 0
+    ) {
+      break;
+    }
+    after = result.pageInfo.endCursor;
+  }
+
+  return {
+    searchExpression,
+    totalCount,
+    jobs,
   };
 }
 
@@ -241,6 +300,41 @@ export async function fetchLatestPositioningJobs(limit = 1000, onPage = null) {
       source: 'upwork.graphql.marketplaceJobPostingsSearch+positioningSearches',
       baseCategoryFetched: software.jobs.length,
       supplementalSearches: supplementalResults.map((result) => ({
+        searchExpression: result.searchExpression,
+        fetched: result.jobs.length,
+        totalCount: result.totalCount,
+      })),
+    },
+  };
+}
+
+export async function fetchRecentPositioningJobs({ sinceDate, onPage = null } = {}) {
+  const since = sinceDate instanceof Date ? sinceDate : new Date(sinceDate);
+  if (Number.isNaN(since.getTime())) {
+    throw new Error(`sinceDate must be a valid date, got ${sinceDate}`);
+  }
+
+  const searchResults = [];
+  for (const searchExpression of POSITIONING_SEARCH_EXPRESSIONS) {
+    const result = await fetchRecentSearchExpressionJobs(searchExpression, since);
+    searchResults.push(result);
+    onPage?.({
+      searchExpression,
+      batchSize: result.jobs.length,
+      totalFetched: searchResults.reduce((sum, item) => sum + item.jobs.length, 0),
+      endCursor: null,
+    });
+  }
+
+  const jobs = sortJobsByPublishedDate(dedupeJobs(searchResults.flatMap((result) => result.jobs)));
+  return {
+    jobs,
+    summary: {
+      ...summarizeJobs(jobs, null),
+      source: POSITIONING_SEARCH_SOURCE,
+      sinceDateTime: since.toISOString(),
+      searchMode: 'keyword_time_window',
+      supplementalSearches: searchResults.map((result) => ({
         searchExpression: result.searchExpression,
         fetched: result.jobs.length,
         totalCount: result.totalCount,

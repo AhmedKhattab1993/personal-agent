@@ -5,11 +5,11 @@ import { dirname, resolve } from 'node:path';
 import { generateCoverLetterWithPi } from './piCoverLetter.js';
 import { classifyLaneCandidatesWithPi } from './piLaneClassifier.js';
 import { classifyLane, LANES } from './positioningLanes.js';
-import { fetchLatestPositioningJobs, parseLimit } from './upworkJobs.js';
+import { fetchRecentPositioningJobs, POSITIONING_SEARCH_SOURCE } from './upworkJobs.js';
 
 const CACHE_PATH = resolve('data/dashboard-lane-jobs.json');
 const SEED_JOBS_PATH = resolve('data/latest-software-dev-1000.jsonl');
-const DEFAULT_REFRESH_LIMIT = 200;
+const DEFAULT_LOOKBACK_HOURS = 72;
 const EXCLUDED_CLIENT_COUNTRIES = new Set([
   'india',
   'ind',
@@ -61,6 +61,33 @@ function isExcludedCompactJob(job) {
   return isExcludedCountry(job.client?.country);
 }
 
+function lookbackCutoffDate(now = new Date()) {
+  return new Date(now.getTime() - DEFAULT_LOOKBACK_HOURS * 60 * 60 * 1000);
+}
+
+function validDate(value) {
+  const date = new Date(value ?? 0);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function isWithinLookback(job, cutoff) {
+  const published = validDate(job.publishedDateTime);
+  return published ? published > cutoff : false;
+}
+
+function newestPublishedDate(records) {
+  let newest = null;
+  for (const record of records) {
+    const published = validDate(record.publishedDateTime);
+    if (published && (!newest || published > newest)) newest = published;
+  }
+  return newest;
+}
+
+function shouldBackfillWindow(existingState) {
+  return existingState.summary?.source !== POSITIONING_SEARCH_SOURCE;
+}
+
 function compactJob(job, laneInfo, existing = null, now = new Date().toISOString()) {
   const client = job.client ?? {};
   const location = client.location ?? {};
@@ -109,7 +136,7 @@ function compactJob(job, laneInfo, existing = null, now = new Date().toISOString
   };
 }
 
-function summarize(records, source, fetchedCount = null) {
+function summarize(records, source, fetchedCount = null, extras = {}) {
   const laneCounts = Object.fromEntries(LANES.map((lane) => [lane.label, 0]));
   const statusCounts = { new: 0, active: 0, stale: 0 };
   let piClassifiedCount = 0;
@@ -122,6 +149,7 @@ function summarize(records, source, fetchedCount = null) {
     generatedAt: new Date().toISOString(),
     source,
     fetchedCount,
+    lookbackHours: DEFAULT_LOOKBACK_HOURS,
     relevantCount: records.length,
     excludedClientCountries: ['India', 'Pakistan', 'Nigeria'],
     piClassifier: {
@@ -130,6 +158,7 @@ function summarize(records, source, fetchedCount = null) {
     },
     laneCounts,
     statusCounts,
+    ...extras,
   };
 }
 
@@ -171,11 +200,18 @@ async function seedFromLatestFile() {
 }
 
 function normalizeDashboardState(state) {
-  const jobs = sortRecords((state.jobs ?? []).filter((job) => !isExcludedCompactJob(job)));
+  const now = new Date();
+  const cutoff = lookbackCutoffDate(now);
+  const jobs = sortRecords((state.jobs ?? [])
+    .filter((job) => !isExcludedCompactJob(job))
+    .filter((job) => isWithinLookback(job, cutoff)));
   return {
     ...state,
     jobs,
-    summary: summarize(jobs, state.summary?.source ?? 'cache', state.summary?.fetchedCount ?? null),
+    summary: summarize(jobs, state.summary?.source ?? 'cache', state.summary?.fetchedCount ?? null, {
+      windowStartDateTime: cutoff.toISOString(),
+      windowEndDateTime: now.toISOString(),
+    }),
   };
 }
 
@@ -194,26 +230,38 @@ export async function loadDashboardJobs() {
   return seeded;
 }
 
-export async function refreshDashboardJobs(limitValue = DEFAULT_REFRESH_LIMIT) {
-  const limit = parseLimit(limitValue, DEFAULT_REFRESH_LIMIT);
+export async function refreshDashboardJobs() {
   const existingState = await loadDashboardJobs();
-  const existingById = new Map((existingState.jobs ?? []).map((job) => [job.id, job]));
-  const now = new Date().toISOString();
+  const now = new Date();
+  const cutoff = lookbackCutoffDate(now);
+  const retainedExisting = (existingState.jobs ?? [])
+    .filter((job) => !isExcludedCompactJob(job))
+    .filter((job) => isWithinLookback(job, cutoff));
+  const existingById = new Map(retainedExisting.map((job) => [job.id, job]));
+  const newestExisting = newestPublishedDate(retainedExisting);
+  const fullWindowBackfill = shouldBackfillWindow(existingState) || !newestExisting || newestExisting < cutoff;
+  const sinceDate = fullWindowBackfill ? cutoff : newestExisting;
+  const nowIso = now.toISOString();
 
-  const latest = await fetchLatestPositioningJobs(limit);
+  const latest = await fetchRecentPositioningJobs({ sinceDate });
   const classified = await classifyRelevantJobs(latest.jobs);
   const refreshed = classified
-    .map((item) => compactJob(item.job, item.laneInfo, existingById.get(item.job.id), now));
+    .map((item) => compactJob(item.job, item.laneInfo, existingById.get(item.job.id), nowIso));
 
   const refreshedIds = new Set(refreshed.map((job) => job.id));
-  const stale = (existingState.jobs ?? [])
+  const retained = retainedExisting
     .filter((job) => !refreshedIds.has(job.id))
-    .map((job) => ({ ...job, status: 'stale' }));
+    .map((job) => ({ ...job, status: 'active' }));
 
-  const jobs = sortRecords([...refreshed, ...stale]);
+  const jobs = sortRecords([...refreshed, ...retained]);
   const state = {
     jobs,
-    summary: summarize(jobs, latest.summary?.source ?? 'upwork.graphql.marketplaceJobPostingsSearch', latest.jobs.length),
+    summary: summarize(jobs, POSITIONING_SEARCH_SOURCE, latest.jobs.length, {
+      deltaSinceDateTime: sinceDate.toISOString(),
+      fullWindowBackfill,
+      windowStartDateTime: cutoff.toISOString(),
+      windowEndDateTime: nowIso,
+    }),
     upworkSummary: latest.summary,
   };
   await writeJson(CACHE_PATH, state);

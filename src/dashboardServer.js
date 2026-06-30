@@ -44,9 +44,7 @@ async function handleApi(req, res) {
     return sendJson(res, 200, await loadDashboardJobs());
   }
   if (req.method === 'POST' && url.pathname === '/api/jobs/refresh') {
-    const body = await readRequestJson(req);
-    const limit = body.limit ?? url.searchParams.get('limit') ?? 200;
-    return sendJson(res, 200, await refreshDashboardJobs(limit));
+    return sendJson(res, 200, await refreshDashboardJobs());
   }
   const coverLetterMatch = url.pathname.match(/^\/api\/jobs\/([^/]+)\/cover-letter$/);
   if (req.method === 'POST' && coverLetterMatch) {

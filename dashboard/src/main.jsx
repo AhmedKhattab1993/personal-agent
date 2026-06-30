@@ -93,7 +93,6 @@ function App() {
   const [error, setError] = useState(null);
   const [query, setQuery] = useState('');
   const [lane, setLane] = useState('all');
-  const [limit, setLimit] = useState(200);
   const [selectedJob, setSelectedJob] = useState(null);
   const [coverLetterLoading, setCoverLetterLoading] = useState(false);
   const [coverLetterError, setCoverLetterError] = useState(null);
@@ -112,8 +111,6 @@ function App() {
     try {
       const response = await fetch('/api/jobs/refresh', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ limit }),
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error ?? 'Failed to refresh jobs');
@@ -224,16 +221,10 @@ function App() {
             </div>
             <h1 className="text-2xl font-semibold tracking-normal sm:text-3xl">Latest Upwork lane dashboard</h1>
             <p className="mt-2 text-sm leading-6 text-slate-200">
-              Jobs are fetched from Upwork&apos;s latest software-development feed, keyword-filtered, reviewed by PI, then reconciled into a local cache.
+              Jobs are fetched from Upwork keyword searches for the last 72 hours, reviewed by PI, then reconciled into a local delta cache.
             </p>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <Select value={limit} onChange={(event) => setLimit(Number(event.target.value))} className="w-full sm:w-32">
-              <option value={50}>50 jobs</option>
-              <option value={100}>100 jobs</option>
-              <option value={200}>200 jobs</option>
-              <option value={500}>500 jobs</option>
-            </Select>
             <Button onClick={refreshJobs} disabled={refreshing}>
               <RefreshCcw className={refreshing ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} />
               {refreshing ? 'Refreshing' : 'Refresh'}
