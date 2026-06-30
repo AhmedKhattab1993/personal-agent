@@ -71,7 +71,7 @@ function formatDate(value) {
 function jobSnippet(description) {
   if (!description) return 'No description available.';
   const normalized = description.replace(/\s+/g, ' ').trim();
-  return normalized.length > 280 ? `${normalized.slice(0, 280)}...` : normalized;
+  return normalized.length > 840 ? `${normalized.slice(0, 840)}...` : normalized;
 }
 
 function laneMeta(laneId) {
