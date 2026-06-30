@@ -74,7 +74,10 @@ async function createAppServer() {
     vite = await createServer({
       root: DASHBOARD_ROOT,
       configFile: join(DASHBOARD_ROOT, 'vite.config.js'),
-      server: { middlewareMode: true },
+      server: {
+        allowedHosts: true,
+        middlewareMode: true,
+      },
       appType: 'spa',
     });
   }
