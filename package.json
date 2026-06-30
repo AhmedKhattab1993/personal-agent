@@ -12,6 +12,7 @@
     "classify": "node src/classifyJobs.js",
     "dashboard": "node src/dashboardServer.js",
     "dashboard:build": "vite build --config dashboard/vite.config.js",
+    "dashboard:reclassify": "node src/reclassifyDashboardJobs.js",
     "jobs": "node src/fetchJobs.js 1000",
     "jobs:sample": "node src/fetchJobs.js 10",
     "me": "node src/me.js",

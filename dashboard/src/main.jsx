@@ -147,8 +147,11 @@ function App() {
         job.title,
         job.description,
         job.lane,
+        job.piClassification?.rationale,
+        job.keywordLane,
         ...(job.skills ?? []),
         ...(job.laneMatches ?? []),
+        ...(job.keywordMatches ?? []),
       ].join(' ').toLowerCase();
       return haystack.includes(needle);
     });
@@ -157,6 +160,7 @@ function App() {
   const newest = jobs[0]?.publishedDateTime ?? data?.summary?.generatedAt;
   const laneCounts = data?.summary?.laneCounts ?? {};
   const statusCounts = data?.summary?.statusCounts ?? {};
+  const piClassifier = data?.summary?.piClassifier;
 
   return (
     <main className="min-h-screen px-4 py-5 sm:px-6 lg:px-8">
@@ -166,10 +170,15 @@ function App() {
             <div className="mb-2 flex flex-wrap items-center gap-2">
               <Badge variant="outline" className="bg-background/60">Upwork API</Badge>
               <Badge variant="secondary">Three-lane positioning</Badge>
+              {piClassifier?.classifiedCount > 0 && (
+                <Badge variant="outline" className="bg-background/60">
+                  PI reviewed {piClassifier.classifiedCount}
+                </Badge>
+              )}
             </div>
             <h1 className="text-2xl font-semibold tracking-normal sm:text-3xl">Latest Upwork lane dashboard</h1>
             <p className="mt-2 text-sm leading-6 text-slate-200">
-              Jobs are fetched from Upwork&apos;s latest software-development feed, filtered to Trading, AI Agents, and Automation, then reconciled into a local cache.
+              Jobs are fetched from Upwork&apos;s latest software-development feed, keyword-filtered, reviewed by PI, then reconciled into a local cache.
             </p>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -318,6 +327,9 @@ function App() {
                         <div className="flex flex-wrap gap-1.5">
                           {(job.laneMatches ?? []).slice(0, 6).map((match) => <Badge key={match} variant="outline">{match}</Badge>)}
                         </div>
+                        {job.piClassification?.rationale && (
+                          <p className="mt-2 text-sm leading-5 text-slate-200">{job.piClassification.rationale}</p>
+                        )}
                       </div>
                       <div className="rounded-md border bg-muted/40 p-3">
                         <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -375,6 +387,12 @@ function App() {
               <div className="mb-4 flex flex-wrap gap-1.5">
                 {(selectedJob.laneMatches ?? []).map((match) => <Badge key={match} variant="outline">{match}</Badge>)}
               </div>
+              {selectedJob.piClassification?.rationale && (
+                <div className="mb-4 rounded-md border bg-muted/40 p-3 text-sm leading-6 text-slate-100">
+                  <span className="font-medium">PI review: </span>
+                  {selectedJob.piClassification.rationale}
+                </div>
+              )}
               <div className="whitespace-pre-wrap text-sm leading-7 text-slate-100">
                 {selectedJob.description || 'No description available.'}
               </div>

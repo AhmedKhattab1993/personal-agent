@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 
+import { classifyLaneCandidatesWithPi } from './piLaneClassifier.js';
 import { classifyLane, LANES } from './positioningLanes.js';
 import { fetchLatestSoftwareJobs, parseLimit } from './upworkJobs.js';
 
@@ -65,7 +66,7 @@ function compactJob(job, laneInfo, existing = null, now = new Date().toISOString
   const fixedBudget = moneyDisplay(job.amount);
   const hourlyMin = moneyDisplay(job.hourlyBudgetMin);
   const hourlyMax = moneyDisplay(job.hourlyBudgetMax);
-  const budget = fixedBudget ?? (hourlyMin || hourlyMax ? `${hourlyMin ?? '?'} - ${hourlyMax ?? '?'}/hr` : null);
+  const budget = fixedBudget ?? (hourlyMin || hourlyMax ? `${hourlyMin ?? '?'} - ${hourlyMax ?? '?'}/hr` : null) ?? existing?.budget ?? null;
 
   return {
     id: job.id,
@@ -77,6 +78,10 @@ function compactJob(job, laneInfo, existing = null, now = new Date().toISOString
     laneId: laneInfo.laneId,
     laneMatches: laneInfo.matches,
     matchedLanes: laneInfo.matchedLanes,
+    keywordLaneId: laneInfo.keywordLaneId ?? laneInfo.laneId,
+    keywordLane: laneInfo.keywordLaneLabel ?? laneInfo.laneLabel,
+    keywordMatches: laneInfo.keywordMatches ?? laneInfo.matches,
+    piClassification: laneInfo.piClassification ?? null,
     publishedDateTime: job.publishedDateTime ?? null,
     createdDateTime: job.createdDateTime ?? null,
     durationLabel: job.durationLabel ?? null,
@@ -105,9 +110,11 @@ function compactJob(job, laneInfo, existing = null, now = new Date().toISOString
 function summarize(records, source, fetchedCount = null) {
   const laneCounts = Object.fromEntries(LANES.map((lane) => [lane.label, 0]));
   const statusCounts = { new: 0, active: 0, stale: 0 };
+  let piClassifiedCount = 0;
   for (const record of records) {
     laneCounts[record.lane] = (laneCounts[record.lane] ?? 0) + 1;
     statusCounts[record.status] = (statusCounts[record.status] ?? 0) + 1;
+    if (record.piClassification) piClassifiedCount += 1;
   }
   return {
     generatedAt: new Date().toISOString(),
@@ -115,6 +122,10 @@ function summarize(records, source, fetchedCount = null) {
     fetchedCount,
     relevantCount: records.length,
     excludedClientCountries: ['India', 'Pakistan', 'Nigeria'],
+    piClassifier: {
+      model: records.find((record) => record.piClassification)?.piClassification?.model ?? process.env.PI_LANE_MODEL ?? 'zai/glm-5.2',
+      classifiedCount: piClassifiedCount,
+    },
     laneCounts,
     statusCounts,
   };
@@ -128,6 +139,16 @@ function sortRecords(records) {
   });
 }
 
+async function classifyRelevantJobs(rawJobs) {
+  const keywordCandidates = rawJobs
+    .filter((job) => !isExcludedRawJob(job))
+    .map((job) => ({ job, laneInfo: classifyLane(job) }))
+    .filter((item) => item.laneInfo.relevant);
+
+  const adjudicated = await classifyLaneCandidatesWithPi(keywordCandidates);
+  return adjudicated.filter((item) => item.laneInfo.relevant);
+}
+
 async function seedFromLatestFile() {
   if (!existsSync(SEED_JOBS_PATH)) {
     return {
@@ -137,10 +158,8 @@ async function seedFromLatestFile() {
   }
   const rawJobs = parseJsonl(await readFile(SEED_JOBS_PATH, 'utf8'));
   const now = new Date().toISOString();
-  const jobs = rawJobs
-    .filter((job) => !isExcludedRawJob(job))
-    .map((job) => ({ job, laneInfo: classifyLane(job) }))
-    .filter((item) => item.laneInfo.relevant)
+  const classified = await classifyRelevantJobs(rawJobs);
+  const jobs = classified
     .map((item) => compactJob(item.job, item.laneInfo, null, now));
   const sorted = sortRecords(jobs);
   return {
@@ -180,10 +199,8 @@ export async function refreshDashboardJobs(limitValue = DEFAULT_REFRESH_LIMIT) {
   const now = new Date().toISOString();
 
   const latest = await fetchLatestSoftwareJobs(limit);
-  const refreshed = latest.jobs
-    .filter((job) => !isExcludedRawJob(job))
-    .map((job) => ({ job, laneInfo: classifyLane(job) }))
-    .filter((item) => item.laneInfo.relevant)
+  const classified = await classifyRelevantJobs(latest.jobs);
+  const refreshed = classified
     .map((item) => compactJob(item.job, item.laneInfo, existingById.get(item.job.id), now));
 
   const refreshedIds = new Set(refreshed.map((job) => job.id));
@@ -196,6 +213,54 @@ export async function refreshDashboardJobs(limitValue = DEFAULT_REFRESH_LIMIT) {
     jobs,
     summary: summarize(jobs, 'upwork.graphql.marketplaceJobPostingsSearch', latest.jobs.length),
     upworkSummary: latest.summary,
+  };
+  await writeJson(CACHE_PATH, state);
+  return state;
+}
+
+function compactJobToRawJob(job) {
+  return {
+    ...job,
+    amount: null,
+    hourlyBudgetMin: null,
+    hourlyBudgetMax: null,
+    client: {
+      totalHires: job.client?.hires ?? null,
+      totalPostedJobs: job.client?.postedJobs ?? null,
+      totalSpent: job.client?.spent ? { displayValue: job.client.spent } : null,
+      verificationStatus: job.client?.verificationStatus ?? null,
+      totalFeedback: job.client?.feedback ?? null,
+      totalReviews: job.client?.reviews ?? null,
+      location: {
+        country: job.client?.country ?? null,
+        city: job.client?.city ?? null,
+      },
+    },
+    skills: (job.skills ?? []).map((skill) => ({ name: skill, prettyName: skill })),
+  };
+}
+
+export async function reclassifyDashboardJobs() {
+  const existingState = await loadDashboardJobs();
+  const now = new Date().toISOString();
+  const rawJobs = (existingState.jobs ?? []).map(compactJobToRawJob);
+  const classified = await classifyRelevantJobs(rawJobs);
+  const existingById = new Map((existingState.jobs ?? []).map((job) => [job.id, job]));
+  const jobs = sortRecords(classified.map((item) => {
+    const existing = existingById.get(item.job.id);
+    const record = compactJob(item.job, item.laneInfo, existing, now);
+    return {
+      ...record,
+      status: existing?.status ?? record.status,
+      firstSeenAt: existing?.firstSeenAt ?? record.firstSeenAt,
+      lastSeenAt: existing?.lastSeenAt ?? record.lastSeenAt,
+      seenCount: existing?.seenCount ?? record.seenCount,
+    };
+  }));
+  const state = {
+    ...existingState,
+    jobs,
+    summary: summarize(jobs, 'cache:pi-reclassified', existingState.summary?.fetchedCount ?? null),
   };
   await writeJson(CACHE_PATH, state);
   return state;
