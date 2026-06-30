@@ -93,7 +93,6 @@ function App() {
   const [error, setError] = useState(null);
   const [query, setQuery] = useState('');
   const [lane, setLane] = useState('all');
-  const [status, setStatus] = useState('all');
   const [limit, setLimit] = useState(200);
   const [selectedJob, setSelectedJob] = useState(null);
   const [coverLetterLoading, setCoverLetterLoading] = useState(false);
@@ -189,7 +188,6 @@ function App() {
     const needle = query.trim().toLowerCase();
     return jobs.filter((job) => {
       if (lane !== 'all' && job.laneId !== lane) return false;
-      if (status !== 'all' && job.status !== status) return false;
       if (!needle) return true;
       const haystack = [
         job.title,
@@ -203,7 +201,7 @@ function App() {
       ].join(' ').toLowerCase();
       return haystack.includes(needle);
     });
-  }, [jobs, lane, query, status]);
+  }, [jobs, lane, query]);
 
   const newest = jobs[0]?.publishedDateTime ?? data?.summary?.generatedAt;
   const laneCounts = data?.summary?.laneCounts ?? {};
@@ -281,7 +279,7 @@ function App() {
 
         <section className="grid gap-4 lg:grid-cols-[1fr_20rem]">
           <Card>
-            <CardContent className="grid gap-3 p-4 md:grid-cols-[1fr_12rem_12rem]">
+            <CardContent className="grid gap-3 p-4 md:grid-cols-[1fr_12rem]">
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -294,12 +292,6 @@ function App() {
               <Select value={lane} onChange={(event) => setLane(event.target.value)}>
                 <option value="all">All lanes</option>
                 {LANES.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
-              </Select>
-              <Select value={status} onChange={(event) => setStatus(event.target.value)}>
-                <option value="all">All statuses</option>
-                <option value="new">New</option>
-                <option value="active">Active</option>
-                <option value="stale">Stale</option>
               </Select>
             </CardContent>
           </Card>
