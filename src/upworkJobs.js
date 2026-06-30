@@ -3,6 +3,15 @@ import { graphql } from './client.js';
 export const SOFTWARE_DEV_CATEGORY_ID = '531770282580668418';
 export const SOFTWARE_DEV_CATEGORY_NAME = 'Web, Mobile & Software Dev';
 export const PAGE_SIZE = 50;
+const SUPPLEMENTAL_SEARCH_PAGE_SIZE = 25;
+const POSITIONING_SEARCH_EXPRESSIONS = [
+  'backtesting trading',
+  'back-testing trading',
+  'Alpaca backtester',
+  'Pine Script TradingView',
+  'broker API trading',
+  'market data trading',
+];
 
 export const JOB_QUERY = /* GraphQL */ `
   query LatestSoftwareJobs(
@@ -126,6 +135,42 @@ export function summarizeJobs(jobs, totalCount, outputPath = null) {
   };
 }
 
+function sortJobsByPublishedDate(jobs) {
+  return [...jobs].sort((a, b) => {
+    const dateDiff = new Date(b.publishedDateTime ?? 0) - new Date(a.publishedDateTime ?? 0);
+    if (dateDiff !== 0) return dateDiff;
+    return String(a.id).localeCompare(String(b.id));
+  });
+}
+
+function dedupeJobs(jobs) {
+  const byId = new Map();
+  for (const job of jobs) {
+    if (!byId.has(job.id)) byId.set(job.id, job);
+  }
+  return [...byId.values()];
+}
+
+async function fetchSearchExpressionJobs(searchExpression, first = SUPPLEMENTAL_SEARCH_PAGE_SIZE) {
+  const variables = {
+    filter: {
+      searchExpression_eq: searchExpression,
+      pagination_eq: { after: '0', first },
+    },
+    sort: [{ field: 'RECENCY' }],
+  };
+  const data = await graphql(JOB_QUERY, variables);
+  const result = data?.marketplaceJobPostingsSearch;
+  if (!result) {
+    throw new Error(`missing marketplaceJobPostingsSearch result for ${searchExpression}`);
+  }
+  return {
+    searchExpression,
+    totalCount: result.totalCount,
+    jobs: result.edges?.map((edge) => edge.node) ?? [],
+  };
+}
+
 export async function fetchLatestSoftwareJobs(limit = 1000, onPage = null) {
   const jobs = [];
   let after = '0';
@@ -167,5 +212,39 @@ export async function fetchLatestSoftwareJobs(limit = 1000, onPage = null) {
   return {
     jobs: trimmed,
     summary: summarizeJobs(trimmed, totalCount),
+  };
+}
+
+export async function fetchLatestPositioningJobs(limit = 1000, onPage = null) {
+  const software = await fetchLatestSoftwareJobs(limit, onPage);
+  const supplementalResults = [];
+
+  for (const searchExpression of POSITIONING_SEARCH_EXPRESSIONS) {
+    const result = await fetchSearchExpressionJobs(searchExpression);
+    supplementalResults.push(result);
+    onPage?.({
+      searchExpression,
+      batchSize: result.jobs.length,
+      totalFetched: software.jobs.length + supplementalResults.reduce((sum, item) => sum + item.jobs.length, 0),
+      endCursor: null,
+    });
+  }
+
+  const jobs = sortJobsByPublishedDate(dedupeJobs([
+    ...software.jobs,
+    ...supplementalResults.flatMap((result) => result.jobs),
+  ]));
+  return {
+    jobs,
+    summary: {
+      ...summarizeJobs(jobs, software.summary.totalCount),
+      source: 'upwork.graphql.marketplaceJobPostingsSearch+positioningSearches',
+      baseCategoryFetched: software.jobs.length,
+      supplementalSearches: supplementalResults.map((result) => ({
+        searchExpression: result.searchExpression,
+        fetched: result.jobs.length,
+        totalCount: result.totalCount,
+      })),
+    },
   };
 }

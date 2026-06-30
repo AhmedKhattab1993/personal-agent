@@ -24,7 +24,7 @@ const LANE_RULES = {
     ['broker API', /\bbroker api\b/],
     ['exchange API', /\bexchange api\b/],
     ['market data', /\bmarket data\b/],
-    ['backtesting', /\bbacktest(?:ing)?\b/],
+    ['backtesting', /\bback[- ]?test(?:er|ing)?\b/],
     ['execution', /\bexecution (?:dashboard|tool|system|engine|workflow)\b/],
     ['TradingView', /\btradingview\b/],
     ['Pine Script', /\bpine ?script\b/],

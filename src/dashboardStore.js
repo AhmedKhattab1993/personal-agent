@@ -5,7 +5,7 @@ import { dirname, resolve } from 'node:path';
 import { generateCoverLetterWithPi } from './piCoverLetter.js';
 import { classifyLaneCandidatesWithPi } from './piLaneClassifier.js';
 import { classifyLane, LANES } from './positioningLanes.js';
-import { fetchLatestSoftwareJobs, parseLimit } from './upworkJobs.js';
+import { fetchLatestPositioningJobs, parseLimit } from './upworkJobs.js';
 
 const CACHE_PATH = resolve('data/dashboard-lane-jobs.json');
 const SEED_JOBS_PATH = resolve('data/latest-software-dev-1000.jsonl');
@@ -200,7 +200,7 @@ export async function refreshDashboardJobs(limitValue = DEFAULT_REFRESH_LIMIT) {
   const existingById = new Map((existingState.jobs ?? []).map((job) => [job.id, job]));
   const now = new Date().toISOString();
 
-  const latest = await fetchLatestSoftwareJobs(limit);
+  const latest = await fetchLatestPositioningJobs(limit);
   const classified = await classifyRelevantJobs(latest.jobs);
   const refreshed = classified
     .map((item) => compactJob(item.job, item.laneInfo, existingById.get(item.job.id), now));
@@ -213,7 +213,7 @@ export async function refreshDashboardJobs(limitValue = DEFAULT_REFRESH_LIMIT) {
   const jobs = sortRecords([...refreshed, ...stale]);
   const state = {
     jobs,
-    summary: summarize(jobs, 'upwork.graphql.marketplaceJobPostingsSearch', latest.jobs.length),
+    summary: summarize(jobs, latest.summary?.source ?? 'upwork.graphql.marketplaceJobPostingsSearch', latest.jobs.length),
     upworkSummary: latest.summary,
   };
   await writeJson(CACHE_PATH, state);
