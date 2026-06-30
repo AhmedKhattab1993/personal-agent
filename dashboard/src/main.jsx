@@ -8,13 +8,30 @@ import {
   CheckCircle2,
   Clock,
   DatabaseZap,
+  FileText,
   RefreshCcw,
   Search,
   SlidersHorizontal,
   TrendingUp,
 } from 'lucide-react';
 
-import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Select } from './components/ui.jsx';
+import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Input,
+  Select,
+} from './components/ui.jsx';
 import './styles.css';
 
 const LANES = [
@@ -76,6 +93,7 @@ function App() {
   const [lane, setLane] = useState('all');
   const [status, setStatus] = useState('all');
   const [limit, setLimit] = useState(200);
+  const [selectedJob, setSelectedJob] = useState(null);
 
   async function loadJobs() {
     setError(null);
@@ -108,6 +126,14 @@ function App() {
     loadJobs()
       .catch((loadError) => setError(loadError.message))
       .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    function closeOnEscape(event) {
+      if (event.key === 'Escape') setSelectedJob(null);
+    }
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
   }, []);
 
   const jobs = data?.jobs ?? [];
@@ -267,12 +293,18 @@ function App() {
                           {job.totalApplicants !== null && <span>{job.totalApplicants} applicants</span>}
                         </CardDescription>
                       </div>
-                      {job.url && (
-                        <Button as="a" variant="outline" size="sm" onClick={() => window.open(job.url, '_blank', 'noopener,noreferrer')}>
-                          Open
-                          <ArrowUpRight className="h-4 w-4" />
+                      <div className="flex flex-wrap gap-2">
+                        <Button variant="outline" size="sm" onClick={() => setSelectedJob(job)}>
+                          <FileText className="h-4 w-4" />
+                          Full description
                         </Button>
-                      )}
+                        {job.url && (
+                          <Button as="a" variant="outline" size="sm" onClick={() => window.open(job.url, '_blank', 'noopener,noreferrer')}>
+                            Open
+                            <ArrowUpRight className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent className="grid gap-4">
@@ -322,6 +354,43 @@ function App() {
           </section>
         )}
       </div>
+      <Dialog open={Boolean(selectedJob)} onClick={() => setSelectedJob(null)}>
+        {selectedJob && (
+          <DialogContent onClick={(event) => event.stopPropagation()}>
+            <DialogHeader>
+              <div className="mb-3 flex flex-wrap items-center gap-2">
+                <Badge className={laneMeta(selectedJob.laneId).badge}>{selectedJob.lane}</Badge>
+                <Badge variant={statusVariant(selectedJob.status)}>{selectedJob.status}</Badge>
+                {selectedJob.budget && <Badge variant="outline">{selectedJob.budget}</Badge>}
+                {selectedJob.experienceLevel && <Badge variant="outline">{selectedJob.experienceLevel}</Badge>}
+              </div>
+              <DialogTitle>{selectedJob.title}</DialogTitle>
+              <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                <span>{formatDate(selectedJob.publishedDateTime)}</span>
+                {selectedJob.client?.country && <span>{selectedJob.client.country}{selectedJob.client.city ? `, ${selectedJob.client.city}` : ''}</span>}
+                {selectedJob.totalApplicants !== null && <span>{selectedJob.totalApplicants} applicants</span>}
+              </p>
+            </DialogHeader>
+            <DialogBody>
+              <div className="mb-4 flex flex-wrap gap-1.5">
+                {(selectedJob.laneMatches ?? []).map((match) => <Badge key={match} variant="outline">{match}</Badge>)}
+              </div>
+              <div className="whitespace-pre-wrap text-sm leading-7 text-slate-100">
+                {selectedJob.description || 'No description available.'}
+              </div>
+            </DialogBody>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setSelectedJob(null)}>Close</Button>
+              {selectedJob.url && (
+                <Button onClick={() => window.open(selectedJob.url, '_blank', 'noopener,noreferrer')}>
+                  Open on Upwork
+                  <ArrowUpRight className="h-4 w-4" />
+                </Button>
+              )}
+            </DialogFooter>
+          </DialogContent>
+        )}
+      </Dialog>
     </main>
   );
 }

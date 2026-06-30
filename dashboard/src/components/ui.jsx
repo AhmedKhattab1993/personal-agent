@@ -78,3 +78,40 @@ export function Select({ className, ...props }) {
     />
   );
 }
+
+export function Dialog({ open, children }) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+      {children}
+    </div>
+  );
+}
+
+export function DialogContent({ className, ...props }) {
+  return (
+    <div
+      className={cn(
+        'max-h-[86vh] w-full max-w-4xl overflow-hidden rounded-lg border bg-card text-card-foreground shadow-2xl shadow-black/50',
+        className
+      )}
+      {...props}
+    />
+  );
+}
+
+export function DialogHeader({ className, ...props }) {
+  return <div className={cn('border-b p-5', className)} {...props} />;
+}
+
+export function DialogTitle({ className, ...props }) {
+  return <h2 className={cn('text-xl font-semibold leading-7 tracking-normal', className)} {...props} />;
+}
+
+export function DialogBody({ className, ...props }) {
+  return <div className={cn('max-h-[58vh] overflow-y-auto p-5', className)} {...props} />;
+}
+
+export function DialogFooter({ className, ...props }) {
+  return <div className={cn('flex flex-col gap-2 border-t p-5 sm:flex-row sm:items-center sm:justify-end', className)} {...props} />;
+}
