@@ -326,4 +326,6 @@ function App() {
   );
 }
 
-createRoot(document.getElementById('root')).render(<App />);
+const rootElement = document.getElementById('root');
+window.__upworkDashboardRoot ??= createRoot(rootElement);
+window.__upworkDashboardRoot.render(<App />);

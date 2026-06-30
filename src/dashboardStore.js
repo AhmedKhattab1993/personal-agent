@@ -8,6 +8,14 @@ import { fetchLatestSoftwareJobs, parseLimit } from './upworkJobs.js';
 const CACHE_PATH = resolve('data/dashboard-lane-jobs.json');
 const SEED_JOBS_PATH = resolve('data/latest-software-dev-1000.jsonl');
 const DEFAULT_REFRESH_LIMIT = 200;
+const EXCLUDED_CLIENT_COUNTRIES = new Set([
+  'india',
+  'ind',
+  'pakistan',
+  'pak',
+  'nigeria',
+  'nga',
+]);
 
 function parseJsonl(content) {
   return content
@@ -33,6 +41,22 @@ function moneyDisplay(value) {
 
 function jobUrl(job) {
   return job.ciphertext ? `https://www.upwork.com/jobs/${job.ciphertext}` : null;
+}
+
+function normalizeCountry(country) {
+  return String(country ?? '').trim().toLowerCase();
+}
+
+function isExcludedCountry(country) {
+  return EXCLUDED_CLIENT_COUNTRIES.has(normalizeCountry(country));
+}
+
+function isExcludedRawJob(job) {
+  return isExcludedCountry(job.client?.location?.country);
+}
+
+function isExcludedCompactJob(job) {
+  return isExcludedCountry(job.client?.country);
 }
 
 function compactJob(job, laneInfo, existing = null, now = new Date().toISOString()) {
@@ -90,6 +114,7 @@ function summarize(records, source, fetchedCount = null) {
     source,
     fetchedCount,
     relevantCount: records.length,
+    excludedClientCountries: ['India', 'Pakistan', 'Nigeria'],
     laneCounts,
     statusCounts,
   };
@@ -113,6 +138,7 @@ async function seedFromLatestFile() {
   const rawJobs = parseJsonl(await readFile(SEED_JOBS_PATH, 'utf8'));
   const now = new Date().toISOString();
   const jobs = rawJobs
+    .filter((job) => !isExcludedRawJob(job))
     .map((job) => ({ job, laneInfo: classifyLane(job) }))
     .filter((item) => item.laneInfo.relevant)
     .map((item) => compactJob(item.job, item.laneInfo, null, now));
@@ -123,9 +149,24 @@ async function seedFromLatestFile() {
   };
 }
 
+function normalizeDashboardState(state) {
+  const jobs = sortRecords((state.jobs ?? []).filter((job) => !isExcludedCompactJob(job)));
+  return {
+    ...state,
+    jobs,
+    summary: summarize(jobs, state.summary?.source ?? 'cache', state.summary?.fetchedCount ?? null),
+  };
+}
+
 export async function loadDashboardJobs() {
   const cached = await readJson(CACHE_PATH, null);
-  if (cached) return cached;
+  if (cached) {
+    const normalized = normalizeDashboardState(cached);
+    if ((normalized.jobs ?? []).length !== (cached.jobs ?? []).length) {
+      await writeJson(CACHE_PATH, normalized);
+    }
+    return normalized;
+  }
 
   const seeded = await seedFromLatestFile();
   await writeJson(CACHE_PATH, seeded);
@@ -140,6 +181,7 @@ export async function refreshDashboardJobs(limitValue = DEFAULT_REFRESH_LIMIT) {
 
   const latest = await fetchLatestSoftwareJobs(limit);
   const refreshed = latest.jobs
+    .filter((job) => !isExcludedRawJob(job))
     .map((job) => ({ job, laneInfo: classifyLane(job) }))
     .filter((item) => item.laneInfo.relevant)
     .map((item) => compactJob(item.job, item.laneInfo, existingById.get(item.job.id), now));
