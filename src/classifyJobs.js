@@ -46,12 +46,12 @@ const RULES = [
   },
   {
     tag: 'ai-apps-agents',
-    patterns: [/\bai agent\b/, /\bagents?\b/, /\brag\b/, /\bchatbot\b/, /\bcopilot\b/, /\bai saas\b/, /\bai platform\b/, /\bllm workflow\b/, /\bgenerative ai\b/],
+    patterns: [/\bai agent\b/, /\bagents?\b/, /\brag\b/, /\bchatbot\b/, /\bcopilot\b/, /\bai saas\b/, /\bai platform\b/, /\bllm workflow\b/, /\bgenerative ai\b/, /\bai receptionist\b/],
     rationale: 'AI is central to the product value, not just an add-on feature.',
   },
   {
     tag: 'ai-feature-integration',
-    patterns: [/\bopenai\b/, /\bclaude\b/, /\bdeepseek\b/, /\blangchain\b/, /\bllm\b/, /\bai integration\b/, /\bai feature\b/, /\bai summary\b/, /\bai support\b/, /\bprompt\b/],
+    patterns: [/\bopenai\b/, /\bclaude\b/, /\bdeepseek\b/, /\blangchain\b/, /\bllm\b/, /\bai integration\b/, /\bai feature\b/, /\bai summary\b/, /\bai support\b/, /\bai automation\b/, /\bai solutions\b/, /\bprompt\b/],
     rationale: 'The posting asks to add AI capability into an existing product or workflow.',
   },
   {
@@ -86,7 +86,7 @@ const RULES = [
   },
   {
     tag: 'automation-integration',
-    patterns: [/\bzapier\b/, /\bmake\.com\b/, /\bn8n\b/, /\bwebhook\b/, /\bapi sync\b/, /\bautomation\b/, /\bautomate\b/, /\bintegration\b/, /\bnotification\b/, /\bgoogle sheets\b/],
+    patterns: [/\bzapier\b/, /\bmake\.com\b/, /\bn8n\b/, /\bapi sync\b/, /\bwebhook flow\b/, /\bworkflow automation\b/, /\bbusiness process automation\b/, /\bautomate (?:manual|repetitive|tasks|process|workflow|emails?|notifications?|lead)/, /\blead routing\b/, /\bdocument parsing\b/, /\bspreadsheet-to-system\b/, /\bgoogle sheets automation\b/],
     rationale: 'The buyer mainly needs workflow automation or systems connected together.',
   },
   {
@@ -178,9 +178,29 @@ function isTestingOnlyJob(text) {
     && !/\b(genetic testing|testing business|testing lab|split testing|a\/b testing)\b/.test(titleAndOpening);
 }
 
+function isAutomationPrimaryJob(text) {
+  const titleAndOpening = text.slice(0, 900);
+  return [
+    /\bzapier\b/,
+    /\bmake\.com\b/,
+    /\bn8n\b/,
+    /\bapi automation specialist\b/,
+    /\bapi sync\b/,
+    /\bwebhook flow\b/,
+    /\bworkflow automation\b/,
+    /\bbusiness process automation\b/,
+    /\bautomate (?:manual|repetitive|tasks|process|workflow|emails?|notifications?|lead)/,
+    /\blead routing\b/,
+    /\bdocument parsing\b/,
+    /\bspreadsheet-to-system\b/,
+    /\bgoogle sheets automation\b/,
+  ].some((pattern) => pattern.test(titleAndOpening));
+}
+
 function classifyPrimary(text) {
   const rule = RULES.find((candidate) => {
     if (candidate.tag === 'qa-testing-review') return isTestingOnlyJob(text);
+    if (candidate.tag === 'automation-integration') return isAutomationPrimaryJob(text);
     return matchesAny(text, candidate.patterns);
   });
   return rule ?? {

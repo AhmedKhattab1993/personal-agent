@@ -1,20 +1,20 @@
 {
-  "generatedAt": "2026-06-30T13:16:53.263Z",
+  "generatedAt": "2026-06-30T13:24:41.107Z",
   "guidePath": "/Users/ahmedkhattab/Projects/upwork-agent/docs/classification-guide.md",
   "inputPath": "/Users/ahmedkhattab/Projects/upwork-agent/data/latest-software-dev-1000.jsonl",
   "outputPath": "/Users/ahmedkhattab/Projects/upwork-agent/data/latest-software-dev-1000.classifications.jsonl",
   "classified": 1000,
   "primaryTagCounts": {
-    "website-build-redesign": 178,
+    "website-build-redesign": 196,
     "ecommerce-storefront": 232,
-    "web-app-saas": 74,
+    "web-app-saas": 95,
     "mobile-app": 116,
-    "ai-apps-agents": 39,
-    "ai-feature-integration": 36,
-    "automation-integration": 73,
+    "ai-apps-agents": 40,
+    "ai-feature-integration": 39,
+    "automation-integration": 8,
     "crm-erp-business-systems": 86,
     "data-scraping-pipelines": 16,
-    "backend-api-infrastructure": 9,
+    "backend-api-infrastructure": 31,
     "qa-testing-review": 67,
     "trading-software": 19,
     "blockchain-web3": 19,
@@ -34,8 +34,8 @@
     "consult": 16
   },
   "confidenceCounts": {
-    "high": 900,
-    "medium": 88,
-    "low": 12
+    "high": 881,
+    "medium": 105,
+    "low": 14
   }
 }
