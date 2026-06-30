@@ -1,5 +1,6 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const PRIMARY_TAGS = new Set([
   'website-build-redesign',
@@ -265,7 +266,7 @@ function validate(record) {
   if (!record.rationale || record.rationale.length > 220) throw new Error(`${record.id}: invalid rationale`);
 }
 
-function classify(job) {
+export function classify(job) {
   const text = textFor(job);
   const primary = classifyPrimary(text);
   const stack = inferStack(text);
@@ -334,7 +335,9 @@ async function main() {
   console.log(JSON.stringify(summary, null, 2));
 }
 
-main().catch((error) => {
-  console.error('Failed:', error.message);
-  process.exit(1);
-});
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((error) => {
+    console.error('Failed:', error.message);
+    process.exit(1);
+  });
+}
