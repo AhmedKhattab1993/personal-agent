@@ -42,6 +42,12 @@ function withoutAsyncCommunicationClosing(text) {
   return markerIndex === -1 ? text : text.slice(0, markerIndex).trim();
 }
 
+export function ensureAsyncCommunicationClosing(text) {
+  const coverLetter = withoutAsyncCommunicationClosing(String(text ?? '').trim());
+  if (!coverLetter) return ASYNC_COMMUNICATION_CLOSING;
+  return `${coverLetter}\n\n${ASYNC_COMMUNICATION_CLOSING}`;
+}
+
 function validateCoverLetter(value) {
   if (!value || typeof value !== 'object') {
     throw new Error('PI cover letter response is not an object');
@@ -50,7 +56,7 @@ function validateCoverLetter(value) {
   if (coverLetter.length < 80) {
     throw new Error('PI cover letter response is too short');
   }
-  return `${coverLetter}\n\n${ASYNC_COMMUNICATION_CLOSING}`;
+  return ensureAsyncCommunicationClosing(coverLetter);
 }
 
 export async function generateCoverLetterWithPi(job, options = {}) {

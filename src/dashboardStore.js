@@ -2,7 +2,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 
-import { generateCoverLetterWithPi } from './piCoverLetter.js';
+import { ensureAsyncCommunicationClosing, generateCoverLetterWithPi } from './piCoverLetter.js';
 import { classifyLaneCandidatesWithPi } from './piLaneClassifier.js';
 import { classifyLane, LANES } from './positioningLanes.js';
 import { fetchRecentPositioningJobs, POSITIONING_SEARCH_SOURCE } from './upworkJobs.js';
@@ -132,7 +132,15 @@ function compactJob(job, laneInfo, existing = null, now = new Date().toISOString
     firstSeenAt: existing?.firstSeenAt ?? now,
     lastSeenAt: now,
     seenCount: (existing?.seenCount ?? 0) + 1,
-    suggestedCoverLetter: existing?.suggestedCoverLetter ?? null,
+    suggestedCoverLetter: normalizeSuggestedCoverLetter(existing?.suggestedCoverLetter),
+  };
+}
+
+function normalizeSuggestedCoverLetter(suggestedCoverLetter) {
+  if (!suggestedCoverLetter?.text) return suggestedCoverLetter ?? null;
+  return {
+    ...suggestedCoverLetter,
+    text: ensureAsyncCommunicationClosing(suggestedCoverLetter.text),
   };
 }
 
@@ -204,7 +212,11 @@ function normalizeDashboardState(state) {
   const cutoff = lookbackCutoffDate(now);
   const jobs = sortRecords((state.jobs ?? [])
     .filter((job) => !isExcludedCompactJob(job))
-    .filter((job) => isWithinLookback(job, cutoff)));
+    .filter((job) => isWithinLookback(job, cutoff))
+    .map((job) => ({
+      ...job,
+      suggestedCoverLetter: normalizeSuggestedCoverLetter(job.suggestedCoverLetter),
+    })));
   return {
     ...state,
     jobs,
@@ -219,7 +231,7 @@ export async function loadDashboardJobs() {
   const cached = await readJson(CACHE_PATH, null);
   if (cached) {
     const normalized = normalizeDashboardState(cached);
-    if ((normalized.jobs ?? []).length !== (cached.jobs ?? []).length) {
+    if (JSON.stringify(normalized.jobs ?? []) !== JSON.stringify(cached.jobs ?? [])) {
       await writeJson(CACHE_PATH, normalized);
     }
     return normalized;
@@ -280,7 +292,7 @@ export async function suggestCoverLetterForJob(jobId, options = {}) {
   if (job.suggestedCoverLetter && !options.force) {
     return {
       jobId: job.id,
-      suggestedCoverLetter: job.suggestedCoverLetter,
+      suggestedCoverLetter: normalizeSuggestedCoverLetter(job.suggestedCoverLetter),
     };
   }
 
