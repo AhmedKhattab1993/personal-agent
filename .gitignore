@@ -9,9 +9,11 @@ tokens.json
 node_modules/
 npm-debug.log*
 dashboard/dist/
+upwork/dashboard/dist/
 
 # generated data
 data/
+upwork/data/
 
 # misc
 .DS_Store
