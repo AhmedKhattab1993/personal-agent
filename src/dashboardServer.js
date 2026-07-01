@@ -21,8 +21,17 @@ const MIME_TYPES = {
   '.json': 'application/json; charset=utf-8',
 };
 
+const NO_CACHE_HEADERS = {
+  'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+  Pragma: 'no-cache',
+  Expires: '0',
+};
+
 function sendJson(res, status, value) {
-  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
+  res.writeHead(status, {
+    'Content-Type': 'application/json; charset=utf-8',
+    ...NO_CACHE_HEADERS,
+  });
   res.end(JSON.stringify(value));
 }
 
@@ -69,6 +78,7 @@ async function serveStatic(req, res) {
   const data = await readFile(candidate);
   res.writeHead(200, {
     'Content-Type': MIME_TYPES[extname(candidate)] ?? 'application/octet-stream',
+    ...NO_CACHE_HEADERS,
   });
   res.end(data);
 }
@@ -83,6 +93,7 @@ async function createAppServer() {
       server: {
         allowedHosts: true,
         middlewareMode: true,
+        headers: NO_CACHE_HEADERS,
       },
       appType: 'spa',
     });
