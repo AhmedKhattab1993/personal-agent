@@ -60,6 +60,8 @@ run walks 20 pages and writes JSONL plus a summary file under `data/`.
 
 Use [docs/classification-guide.md](docs/classification-guide.md) when assigning
 semantic trend tags to fetched jobs.
+Use [docs/upwork-ai-agents-profile.md](docs/upwork-ai-agents-profile.md) for
+copy-ready Upwork profile text focused on AI agents and workflow automation.
 
 ### 4. Run the positioning dashboard
 
