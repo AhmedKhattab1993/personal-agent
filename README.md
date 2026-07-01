@@ -67,9 +67,10 @@ semantic trend tags to fetched jobs.
 npm run dashboard
 ```
 
-Open <http://127.0.0.1:5173>. The dashboard shows only jobs that match the
-three lanes in [docs/positioning-plan.md](docs/positioning-plan.md): Trading,
-AI Agents, and Automation.
+Open <http://studio.tailcc4c77.ts.net:5173>. The dashboard binds to all local
+interfaces by default so it is reachable over Tailscale. It shows only jobs
+that match the three lanes in [docs/positioning-plan.md](docs/positioning-plan.md):
+Trading, AI Agents, and Automation.
 
 The **Refresh** button calls the Upwork API, fetches the latest software-dev
 jobs, filters out unrelated work, excludes trading jobs involving betting,

@@ -7,7 +7,8 @@ import { pathToFileURL } from 'node:url';
 import { loadDashboardJobs, refreshDashboardJobs, suggestCoverLetterForJob } from './dashboardStore.js';
 
 const PORT = Number(process.env.DASHBOARD_PORT ?? 5173);
-const HOST = process.env.DASHBOARD_HOST ?? '127.0.0.1';
+const HOST = process.env.DASHBOARD_HOST ?? '0.0.0.0';
+const PUBLIC_HOST = process.env.DASHBOARD_PUBLIC_HOST ?? 'studio.tailcc4c77.ts.net';
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const DASHBOARD_ROOT = resolve('dashboard');
 const DIST_ROOT = resolve('dashboard/dist');
@@ -111,6 +112,9 @@ export async function startDashboardServer() {
     server.listen(PORT, HOST, resolveListen);
   });
   console.log(`Dashboard running at http://${HOST}:${PORT}`);
+  if (PUBLIC_HOST) {
+    console.log(`Tailnet URL: http://${PUBLIC_HOST}:${PORT}`);
+  }
   console.log('Refresh uses the Upwork API through existing OAuth tokens.');
   return server;
 }
