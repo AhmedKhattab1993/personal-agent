@@ -63,15 +63,15 @@ semantic trend tags to fetched jobs.
 Use [docs/upwork-ai-agents-profile.md](docs/upwork-ai-agents-profile.md) for
 copy-ready Upwork profile text focused on AI agents and workflow automation.
 
-### 4. Run the positioning dashboard
+### 4. Run Work Circuit Opportunity Radar
 
 ```sh
 npm run dashboard
 ```
 
-Open <http://studio.tailcc4c77.ts.net:5173>. The dashboard binds to all local
-interfaces by default so it is reachable over Tailscale. It shows only jobs
-that match the three lanes in [docs/positioning-plan.md](docs/positioning-plan.md):
+Open <http://studio.tailcc4c77.ts.net:5173>. Work Circuit Opportunity Radar
+binds to all local interfaces by default so it is reachable over Tailscale. It
+shows only jobs that match the three lanes in [docs/positioning-plan.md](docs/positioning-plan.md):
 Trading, AI Agents, and Automation.
 
 The **Refresh** button calls the Upwork API, fetches the latest software-dev

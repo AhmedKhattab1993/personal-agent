@@ -36,27 +36,33 @@ import {
 } from './components/ui.jsx';
 import './styles.css';
 
+const BRAND = {
+  name: 'Work Circuit',
+  product: 'Opportunity Radar',
+  icon: '/workcircuit-icon-192.png',
+};
+
 const LANES = [
   {
     id: 'trading',
     label: 'Trading',
     icon: TrendingUp,
-    color: 'border-l-sky-400',
-    badge: 'bg-sky-950/90 text-sky-100 border-sky-400/70',
+    color: 'border-l-cyan-300',
+    badge: 'bg-cyan-950/80 text-cyan-100 border-cyan-300/70',
   },
   {
     id: 'ai-agents',
     label: 'AI Agents',
     icon: Bot,
-    color: 'border-l-violet-400',
-    badge: 'bg-violet-950/90 text-violet-100 border-violet-400/70',
+    color: 'border-l-violet-300',
+    badge: 'bg-violet-950/80 text-violet-100 border-violet-300/70',
   },
   {
     id: 'automation',
     label: 'Automation',
     icon: DatabaseZap,
-    color: 'border-l-emerald-400',
-    badge: 'bg-emerald-950/90 text-emerald-100 border-emerald-400/70',
+    color: 'border-l-emerald-300',
+    badge: 'bg-emerald-950/80 text-emerald-100 border-emerald-300/70',
   },
 ];
 
@@ -208,21 +214,27 @@ function App() {
   return (
     <main className="min-h-screen px-4 py-5 sm:px-6 lg:px-8">
       <div className="mx-auto flex max-w-7xl flex-col gap-5">
-        <section className="flex flex-col gap-4 rounded-lg border bg-card/90 p-5 shadow-sm shadow-black/25 backdrop-blur md:flex-row md:items-center md:justify-between">
-          <div className="max-w-3xl">
-            <div className="mb-2 flex flex-wrap items-center gap-2">
-              <Badge variant="outline" className="bg-background/60">Upwork API</Badge>
-              <Badge variant="secondary">Three-lane positioning</Badge>
-              {piClassifier?.classifiedCount > 0 && (
-                <Badge variant="outline" className="bg-background/60">
-                  PI reviewed {piClassifier.classifiedCount}
-                </Badge>
-              )}
+        <section className="flex flex-col gap-5 rounded-lg border bg-card/95 p-5 shadow-sm shadow-black/25 backdrop-blur md:flex-row md:items-center md:justify-between">
+          <div className="flex max-w-4xl flex-col gap-4 sm:flex-row sm:items-center">
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg border border-violet-300/35 bg-background/70 p-2 shadow-sm shadow-violet-950/40">
+              <img src={BRAND.icon} alt={BRAND.name} className="h-full w-full object-contain" />
             </div>
-            <h1 className="text-2xl font-semibold tracking-normal sm:text-3xl">Latest Upwork lane dashboard</h1>
-            <p className="mt-2 text-sm leading-6 text-slate-200">
-              Jobs are fetched from Upwork keyword searches for the last 72 hours, reviewed by PI, then reconciled into a local delta cache.
-            </p>
+            <div>
+              <div className="mb-2 flex flex-wrap items-center gap-2">
+                <Badge variant="outline" className="border-violet-300/50 bg-violet-950/45 text-violet-100">{BRAND.name}</Badge>
+                <Badge variant="secondary">Client opportunity radar</Badge>
+                <Badge variant="outline" className="bg-background/60">Upwork source</Badge>
+                {piClassifier?.classifiedCount > 0 && (
+                  <Badge variant="outline" className="bg-background/60">
+                    PI reviewed {piClassifier.classifiedCount}
+                  </Badge>
+                )}
+              </div>
+              <h1 className="text-2xl font-semibold tracking-normal sm:text-3xl">{BRAND.name} {BRAND.product}</h1>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-200">
+                Fresh client opportunities organized by fit, signal, and proposal readiness.
+              </p>
+            </div>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <Button onClick={refreshJobs} disabled={refreshing}>
@@ -237,7 +249,7 @@ function App() {
             <CardContent className="flex items-start gap-3 p-4">
               <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
               <div>
-                <p className="font-medium">Dashboard error</p>
+                <p className="font-medium">Radar error</p>
                 <p className="mt-1 text-sm">{error}</p>
               </div>
             </CardContent>
@@ -258,9 +270,9 @@ function App() {
                     <span className="text-2xl font-semibold">{laneCounts[item.label] ?? 0}</span>
                   </div>
                   <CardDescription>
-                    {item.id === 'trading' && 'Broker APIs, backtesting, Pine Script, dashboards.'}
-                    {item.id === 'ai-agents' && 'Chatbot, Claude, OpenAI, RAG, workflow agents.'}
-                    {item.id === 'automation' && 'APIs, pipelines, alerts, reports, process automation.'}
+                    {item.id === 'trading' && 'Market systems, broker APIs, backtesting, dashboards.'}
+                    {item.id === 'ai-agents' && 'OpenAI, Claude, RAG, copilots, workflow agents.'}
+                    {item.id === 'automation' && 'APIs, pipelines, reports, alerts, process automation.'}
                   </CardDescription>
                 </CardHeader>
               </Card>
@@ -276,7 +288,7 @@ function App() {
                 <Input
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Search title, description, skills, lane matches..."
+                  placeholder="Search opportunities, signals, skills..."
                   className="pl-9"
                 />
               </div>
@@ -308,7 +320,7 @@ function App() {
           <Card>
             <CardContent className="flex items-center gap-3 p-6 text-muted-foreground">
               <RefreshCcw className="h-4 w-4 animate-spin" />
-              Loading dashboard cache...
+              Loading opportunity radar...
             </CardContent>
           </Card>
         ) : (
@@ -390,7 +402,7 @@ function App() {
             {filteredJobs.length === 0 && (
               <Card>
                 <CardContent className="p-8 text-center text-muted-foreground">
-                  No jobs match the current filters.
+                  No opportunities match the current filters.
                 </CardContent>
               </Card>
             )}
@@ -428,7 +440,7 @@ function App() {
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                   <p className="flex items-center gap-2 text-sm font-medium text-slate-100">
                     <MessageSquareText className="h-4 w-4" />
-                    Suggested cover letter
+                    Proposal draft
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {selectedJob.suggestedCoverLetter?.text && (
