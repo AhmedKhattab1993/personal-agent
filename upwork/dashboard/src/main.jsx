@@ -39,7 +39,7 @@ import './styles.css';
 const BRAND = {
   name: 'Work Circuit',
   product: 'Opportunity Radar',
-  icon: '/workcircuit-icon-192.png',
+  icon: '/workcircuit-mark.svg',
 };
 
 const LANES = [
