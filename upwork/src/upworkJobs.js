@@ -26,6 +26,7 @@ const POSITIONING_SEARCH_EXPRESSIONS = [
   'API integration automation',
   'data pipeline automation',
 ];
+const MAX_POSITIONING_SEARCH_PAGES = 100;
 
 export const JOB_QUERY = /* GraphQL */ `
   query LatestSoftwareJobs(
@@ -193,8 +194,14 @@ async function fetchRecentSearchExpressionJobs(searchExpression, sinceDate) {
   const jobs = [];
   let after = '0';
   let totalCount = null;
+  let pages = 0;
 
   while (true) {
+    pages += 1;
+    if (pages > MAX_POSITIONING_SEARCH_PAGES) {
+      throw new Error(`search pagination exceeded ${MAX_POSITIONING_SEARCH_PAGES} pages for ${searchExpression}`);
+    }
+
     const variables = {
       filter: {
         searchExpression_eq: searchExpression,
