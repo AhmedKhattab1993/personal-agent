@@ -57,8 +57,9 @@ function withoutTemplateParts(text) {
   let result = String(text ?? '').trim();
   result = result.replace(/^Hi(?:\s+[^,\n]+)?[,]?\s*\n+/i, '').trim();
   result = result.replace(/\n*\s*Thanks,\s*(?:\n\s*)?Ahmed\s*$/i, '').trim();
-  const marker = 'I’m a strong believer in clear and efficient async communication.';
-  const markerIndex = result.indexOf(marker);
+  const normalized = result.replace(/[‘’]/g, "'");
+  const marker = "I'm a strong believer in clear and efficient async communication.";
+  const markerIndex = normalized.indexOf(marker);
   return markerIndex === -1 ? result : result.slice(0, markerIndex).trim();
 }
 
