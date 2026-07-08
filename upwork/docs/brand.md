@@ -10,9 +10,9 @@ AK Coding is the holding company and legal operating entity behind the brands. I
 
 Market Circuit is the trading-related lane and brand. It covers stocks, earnings, market-moving news, research briefs, dashboards, alerts, trading infrastructure, broker APIs, market data, backtesting, and future market-intelligence products. The brand should be positioned around market intelligence, decision support, and trading software, not investment advice or guaranteed trading returns.
 
-## Upwork Circuit
+## Work Circuit
 
-Upwork Circuit is the AI-related Upwork lane. It covers AI jobs, AI products, AI agents, LLM workflows, RAG, copilots, and video work for AI-related products or services.
+Work Circuit is the AI-related Upwork lane. It covers AI jobs, AI products, AI agents, LLM workflows, RAG, copilots, and video work for AI-related products or services.
 
 ## Automation
 

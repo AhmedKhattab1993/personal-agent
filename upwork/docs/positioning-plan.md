@@ -2,13 +2,13 @@
 
 ## Core Positioning
 
-Use Upwork Circuit as the primary AI-related Upwork lane, with Automation as the
+Use Work Circuit as the primary AI-related Upwork lane, with Automation as the
 plain supporting lane and Market Circuit as the trading-related lane for complex
 software systems.
 
 | Lane | Positioning | Avoided expectation |
 |------|-------------|---------------------|
-| Upwork Circuit | AI-related jobs, products, agents, LLM workflows, copilots, RAG, and video work | "AI will generate trading returns" |
+| Work Circuit | AI-related jobs, products, agents, LLM workflows, copilots, RAG, and video work | "AI will generate trading returns" |
 | Automation | API integrations, data pipelines, alerts, reports, business process automation | "magic AI outcome" |
 | Market Circuit | Trading systems, broker APIs, dashboards, backtesting, execution tools | "AI will make profitable trades" |
 
@@ -18,9 +18,9 @@ profile should lead with agents and operational automation, then use trading as
 evidence that AK Coding can handle APIs, reliability, data pipelines, dashboards,
 and complex edge cases.
 
-## Lane 1: Upwork Circuit
+## Lane 1: Work Circuit
 
-Position Upwork Circuit as the AI-related lane for business workflow systems,
+Position Work Circuit as the AI-related lane for business workflow systems,
 AI products, and AI/product video work with clear inputs, outputs, tools, and
 review points.
 
@@ -199,7 +199,7 @@ Market Circuit:
 - Alpaca
 - Binance API
 
-Upwork Circuit:
+Work Circuit:
 
 - AI agent
 - AI workflow
@@ -252,7 +252,7 @@ Automation:
 Keep the lanes separate in client communication:
 
 - Market Circuit means trading-related software, infrastructure, and market intelligence.
-- Upwork Circuit means AI-related jobs, products, workflows, and video work.
+- Work Circuit means AI-related jobs, products, workflows, and video work.
 - Automation means deterministic process execution.
 
 Do not let clients blend these into a promise that AI will produce trading

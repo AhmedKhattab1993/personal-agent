@@ -58,7 +58,7 @@ const LANES = [
   },
   {
     id: 'ai-agents',
-    label: 'Upwork Circuit',
+    label: 'Work Circuit',
     icon: Bot,
     color: 'border-l-violet-300',
     badge: 'bg-violet-950/80 text-violet-100 border-violet-300/70',
@@ -304,7 +304,7 @@ function App() {
                   </div>
                   <CardDescription>
                     {item.id === 'trading' && 'Trading-related jobs for Market Circuit work.'}
-                    {item.id === 'ai-agents' && 'AI-related jobs, products, and video work.'}
+                    {item.id === 'ai-agents' && 'AI-related jobs, products, and video work for Work Circuit.'}
                     {item.id === 'automation' && 'Unbranded automation work kept as its own lane.'}
                   </CardDescription>
                 </CardHeader>

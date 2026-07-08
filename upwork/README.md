@@ -72,7 +72,7 @@ npm run dashboard
 Open <http://studio.tailcc4c77.ts.net:5173>. The personal Upwork dashboard
 binds to all local interfaces by default so it is reachable over Tailscale. It
 shows only jobs that match the three lanes in [docs/positioning-plan.md](docs/positioning-plan.md):
-Market Circuit, Upwork Circuit, and Automation.
+Market Circuit, Work Circuit, and Automation.
 
 The **Refresh** button calls the Upwork API, fetches the latest software-dev
 jobs, filters out unrelated work, excludes Market Circuit jobs involving betting,
@@ -104,7 +104,7 @@ posting details that the current OAuth app can read.
 | `src/fetchJobs.js`  | Native-recency software-development job exporter |
 | `src/dashboardServer.js` | Local dashboard server and API refresh endpoint |
 | `src/dashboardStore.js` | Lane-filtered dashboard cache and reconciliation logic |
-| `src/positioningLanes.js` | Market Circuit / Upwork Circuit / Automation lane classifier |
+| `src/positioningLanes.js` | Market Circuit / Work Circuit / Automation lane classifier |
 | `src/fetchProposalHistory.js` | Freelancer proposal-history JSON exporter |
 | `src/me.js`         | Minimal auth smoke test |
 

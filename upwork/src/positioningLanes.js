@@ -7,7 +7,7 @@ export const LANES = [
   },
   {
     id: 'ai-agents',
-    label: 'Upwork Circuit',
+    label: 'Work Circuit',
     description: 'AI-related jobs, products, agents, LLM workflows, copilots, RAG, and video work.',
     avoidedExpectation: 'AI will generate trading returns.',
   },

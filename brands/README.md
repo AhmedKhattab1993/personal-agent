@@ -23,6 +23,6 @@
 
 - `AK Coding` is the legal and contracting layer.
 - `Market Circuit` is the visible brand for trading-related market intelligence, research, alerting, decision-support, and trading-software surfaces.
-- `Upwork Circuit` is the AI-related Upwork lane for AI jobs, AI products, AI agents, and AI/product video work.
+- `Work Circuit` is the AI-related Upwork lane for AI jobs, AI products, AI agents, and AI/product video work.
 - `Automation` is not a brand. Keep automation work as a plain lane.
 - The Upwork dashboard is personal management tooling, not a branded product surface for any lane.
