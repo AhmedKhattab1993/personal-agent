@@ -37,6 +37,7 @@ import {
 } from './components/ui.jsx';
 import {
   estimateOpportunity,
+  filterJobsByPublishedHours,
   formatOpportunityBadge,
   formatOpportunityTitle,
   sortJobsForDisplay,
@@ -73,6 +74,8 @@ const LANES = [
   },
 ];
 
+const TIME_WINDOWS = [1, 4, 8, 24, 72];
+
 function formatDate(value) {
   if (!value) return 'Unknown';
   return new Intl.DateTimeFormat(undefined, {
@@ -99,6 +102,22 @@ function statusVariant(status) {
   return 'secondary';
 }
 
+function countLanes(records) {
+  const counts = Object.fromEntries(LANES.map((lane) => [lane.label, 0]));
+  for (const record of records) {
+    counts[record.lane] = (counts[record.lane] ?? 0) + 1;
+  }
+  return counts;
+}
+
+function countStatuses(records) {
+  const counts = { new: 0, active: 0, stale: 0 };
+  for (const record of records) {
+    counts[record.status] = (counts[record.status] ?? 0) + 1;
+  }
+  return counts;
+}
+
 function App() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -106,6 +125,7 @@ function App() {
   const [error, setError] = useState(null);
   const [query, setQuery] = useState('');
   const [lane, setLane] = useState('all');
+  const [timeWindowHours, setTimeWindowHours] = useState('72');
   const [sortMode, setSortMode] = useState('newest');
   const [selectedJob, setSelectedJob] = useState(null);
   const [coverLetterLoading, setCoverLetterLoading] = useState(false);
@@ -195,9 +215,14 @@ function App() {
   }, [selectedJob?.id]);
 
   const jobs = data?.jobs ?? [];
+  const filterReferenceTime = data?.summary?.windowEndDateTime ?? data?.summary?.generatedAt ?? new Date().toISOString();
+  const timeWindowJobs = useMemo(
+    () => filterJobsByPublishedHours(jobs, timeWindowHours, filterReferenceTime),
+    [jobs, timeWindowHours, filterReferenceTime]
+  );
   const filteredJobs = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    const visible = jobs.filter((job) => {
+    const visible = timeWindowJobs.filter((job) => {
       if (lane !== 'all' && job.laneId !== lane) return false;
       if (!needle) return true;
       const haystack = [
@@ -213,11 +238,11 @@ function App() {
       return haystack.includes(needle);
     });
     return sortJobsForDisplay(visible, sortMode);
-  }, [jobs, lane, query, sortMode]);
+  }, [timeWindowJobs, lane, query, sortMode]);
 
-  const newest = jobs[0]?.publishedDateTime ?? data?.summary?.generatedAt;
-  const laneCounts = data?.summary?.laneCounts ?? {};
-  const statusCounts = data?.summary?.statusCounts ?? {};
+  const newest = timeWindowJobs[0]?.publishedDateTime ?? null;
+  const laneCounts = useMemo(() => countLanes(timeWindowJobs), [timeWindowJobs]);
+  const statusCounts = useMemo(() => countStatuses(timeWindowJobs), [timeWindowJobs]);
   const piClassifier = data?.summary?.piClassifier;
   const selectedOpportunity = selectedJob ? estimateOpportunity(selectedJob) : null;
 
@@ -292,7 +317,7 @@ function App() {
 
         <section className="grid gap-4 lg:grid-cols-[1fr_20rem]">
           <Card>
-            <CardContent className="grid gap-3 p-4 md:grid-cols-[1fr_12rem_14rem]">
+            <CardContent className="grid gap-3 p-4 md:grid-cols-[1fr_11rem_11rem_14rem]">
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -305,6 +330,11 @@ function App() {
               <Select aria-label="Lane filter" value={lane} onChange={(event) => setLane(event.target.value)}>
                 <option value="all">All lanes</option>
                 {LANES.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+              </Select>
+              <Select aria-label="Published window" value={timeWindowHours} onChange={(event) => setTimeWindowHours(event.target.value)}>
+                {TIME_WINDOWS.map((hours) => (
+                  <option key={hours} value={String(hours)}>Last {hours} {hours === 1 ? 'hour' : 'hours'}</option>
+                ))}
               </Select>
               <Select aria-label="Sort jobs" value={sortMode} onChange={(event) => setSortMode(event.target.value)}>
                 <option value="newest">Newest first</option>

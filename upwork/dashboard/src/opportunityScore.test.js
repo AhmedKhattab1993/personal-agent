@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   estimateEffortHours,
   estimateOpportunity,
+  filterJobsByPublishedHours,
   parseBudget,
   sortJobsForDisplay,
 } from './opportunityScore.js';
@@ -107,4 +108,41 @@ test('keeps unrated jobs behind scored jobs and orders them by recency', () => {
   ], 'opportunity');
 
   assert.deepEqual(sorted.map((job) => job.id), ['ranked', 'newer-unknown', 'older-unknown']);
+});
+
+test('filters jobs by selected published-hour window', () => {
+  const jobs = [
+    { id: 'within-1h', publishedDateTime: '2026-07-08T11:30:00Z' },
+    { id: 'within-4h', publishedDateTime: '2026-07-08T09:00:00Z' },
+    { id: 'within-24h', publishedDateTime: '2026-07-07T12:30:00Z' },
+    { id: 'outside-24h', publishedDateTime: '2026-07-07T11:59:59Z' },
+    { id: 'missing-date', publishedDateTime: null },
+  ];
+
+  assert.deepEqual(
+    filterJobsByPublishedHours(jobs, 1, '2026-07-08T12:00:00Z').map((job) => job.id),
+    ['within-1h']
+  );
+
+  assert.deepEqual(
+    filterJobsByPublishedHours(jobs, 4, '2026-07-08T12:00:00Z').map((job) => job.id),
+    ['within-1h', 'within-4h']
+  );
+
+  assert.deepEqual(
+    filterJobsByPublishedHours(jobs, 24, '2026-07-08T12:00:00Z').map((job) => job.id),
+    ['within-1h', 'within-4h', 'within-24h']
+  );
+});
+
+test('keeps all jobs when the published-hour filter is invalid', () => {
+  const jobs = [
+    { id: 'a', publishedDateTime: '2026-07-08T11:30:00Z' },
+    { id: 'b', publishedDateTime: null },
+  ];
+
+  assert.deepEqual(
+    filterJobsByPublishedHours(jobs, 'all', '2026-07-08T12:00:00Z').map((job) => job.id),
+    ['a', 'b']
+  );
 });

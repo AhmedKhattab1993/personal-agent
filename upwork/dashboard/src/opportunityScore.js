@@ -19,6 +19,11 @@ const WEEKLY_HOURS = [
   [/30\+ hrs\/week/i, 35],
 ];
 
+function validDateValue(value) {
+  const time = new Date(value ?? 0).getTime();
+  return Number.isFinite(time) ? time : null;
+}
+
 function matchValue(value, table) {
   const text = String(value ?? '');
   const match = table.find(([pattern]) => pattern.test(text));
@@ -98,8 +103,7 @@ export function estimateOpportunity(job) {
 }
 
 function dateValue(job) {
-  const value = new Date(job?.publishedDateTime ?? job?.lastSeenAt ?? 0).getTime();
-  return Number.isFinite(value) ? value : 0;
+  return validDateValue(job?.publishedDateTime ?? job?.lastSeenAt) ?? 0;
 }
 
 function compareNewest(a, b) {
@@ -132,6 +136,18 @@ export function sortJobsForDisplay(jobs, sortMode) {
   const records = [...jobs];
   if (sortMode === 'opportunity') return records.sort(compareOpportunity);
   return records.sort(compareNewest);
+}
+
+export function filterJobsByPublishedHours(jobs, hours, referenceTime) {
+  const parsedHours = Number(hours);
+  const reference = validDateValue(referenceTime);
+  if (!Number.isFinite(parsedHours) || parsedHours <= 0 || reference === null) return [...jobs];
+
+  const cutoff = reference - parsedHours * 60 * 60 * 1000;
+  return jobs.filter((job) => {
+    const published = validDateValue(job?.publishedDateTime ?? job?.lastSeenAt);
+    return published !== null && published >= cutoff && published <= reference;
+  });
 }
 
 function formatMoney(value) {
