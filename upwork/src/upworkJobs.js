@@ -4,8 +4,9 @@ export const SOFTWARE_DEV_CATEGORY_ID = '531770282580668418';
 export const SOFTWARE_DEV_CATEGORY_NAME = 'Web, Mobile & Software Dev';
 export const PAGE_SIZE = 50;
 const POSITIONING_SEARCH_PAGE_SIZE = 50;
-export const POSITIONING_SEARCH_SOURCE = 'upwork.graphql.marketplaceJobPostingsSearch+positioningKeywordSearches';
+export const POSITIONING_SEARCH_SOURCE = 'upwork.graphql.marketplaceJobPostingsSearch+positioningKeywordSearches.v2';
 const POSITIONING_SEARCH_EXPRESSIONS = [
+  'trading',
   'backtesting trading',
   'back-testing trading',
   'Alpaca backtester',

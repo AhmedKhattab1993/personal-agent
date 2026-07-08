@@ -29,7 +29,6 @@ function keywordSignals(laneInfo) {
     otherHints: laneInfo.matchedLanes
       .filter((item) => item.id !== laneInfo.laneId)
       .map((item) => item.id),
-    excludedTrading: laneInfo.excludedTrading,
   };
 }
 
@@ -37,10 +36,10 @@ function promptForBatch(items, retry = false) {
   const retryPrefix = retry
     ? 'Your previous output was invalid. Return complete minified JSON only, no markdown, no truncation.\n'
     : '';
-  return `${retryPrefix}Strictly classify these Upwork jobs. Keyword lane is only a hint.
+  return `${retryPrefix}Strictly classify these Upwork jobs using the whole title, description, skills, and keyword signals together. Keyword matches are weak hints only; never reject or accept from a keyword alone.
 Return JSON array only, one object per input in the same order: [{"id":"...","laneId":"trading|ai-agents|automation|reject","rationale":"under 18 words"}]
-trading=broker APIs, market data, backtesting, execution dashboards, Pine Script, TradingView, MT4/MT5, IBKR, Alpaca, Binance API. Reject AI profit promises, betting, Polymarket, prediction markets, gambling, options trading.
-ai-agents=business workflow/research/reporting/CRM/ecommerce/support/internal agents or copilots using Claude/OpenAI/LangChain/RAG with clear workflow/data. Reject AI trading returns or vague chatbot-only jobs.
+trading=broker APIs, market data, backtesting, execution dashboards, Pine Script, TradingView, MT4/MT5, IBKR, Alpaca, Binance API, trading bots, trading automation, trading analytics, and paper-trading prototypes. Reject only when full context shows betting/gambling, Polymarket, options-only work, or explicit promises of guaranteed/profitable AI trading returns.
+ai-agents=business workflow/research/reporting/CRM/ecommerce/support/internal agents or copilots using Claude/OpenAI/LangChain/RAG with clear workflow/data. Do not reject a trading infrastructure job merely because it uses OpenAI or LLMs; classify by the actual project context.
 automation=API integrations, data pipelines, alerts, reports, webhooks, Zapier/Make/n8n, Sheets/Airtable/Slack/CRM integrations, document parsing, repeatable process automation.
 Reject ordinary website/app builds, Shopify setup, pure design, mobile app dev, QA, DevOps, generic backend, or outside these lanes.
 Jobs=${JSON.stringify(items)}`;

@@ -73,13 +73,6 @@ const LANE_RULES = {
   ],
 };
 
-const TRADING_EXCLUSIONS = [
-  ['Polymarket', /\bpolymarket\b/],
-  ['prediction market', /\bprediction market\b|\bevent betting\b/],
-  ['betting/gambling', /\bbetting\b|\bgambling\b|\bsportsbook\b|\bbookmaker\b/],
-  ['options trading', /\boptions? trading\b|\btrading options?\b|\boptions? strategy\b|\boptions? scanner\b|\boptions? execution\b|\boptions? bot\b|\boptions? alerts?\b|\boptions? signals?\b/],
-];
-
 function normalize(value) {
   return String(value ?? '').toLowerCase().replace(/\s+/g, ' ');
 }
@@ -96,14 +89,9 @@ function findMatches(text, rules) {
 
 export function classifyLane(job) {
   const text = jobContentText(job);
-  const excludedTrading = findMatches(text, TRADING_EXCLUSIONS);
   const laneMatches = {};
 
   for (const lane of LANES) {
-    if (lane.id === 'trading' && excludedTrading.length > 0) {
-      laneMatches[lane.id] = [];
-      continue;
-    }
     laneMatches[lane.id] = findMatches(text, LANE_RULES[lane.id]);
   }
 
@@ -127,7 +115,6 @@ export function classifyLane(job) {
       label: item.lane.label,
       matches: item.matches,
     })),
-    excludedTrading,
     relevant: ranked.length > 0,
   };
 }
