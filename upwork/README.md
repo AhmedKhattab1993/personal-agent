@@ -74,10 +74,11 @@ binds to all local interfaces by default so it is reachable over Tailscale. It
 shows only jobs that match the three lanes in [docs/positioning-plan.md](docs/positioning-plan.md):
 Market Circuit, Work Circuit, and Automation.
 
-The **Refresh** button calls the Upwork API, fetches the latest software-dev
-jobs, filters out unrelated work, excludes Market Circuit jobs involving betting,
-prediction markets, Polymarket, or options trading, and reconciles the results
-into `data/dashboard-lane-jobs.json`.
+The server refreshes automatically every hour. The **Refresh** button uses the
+same Upwork API path on demand, fetching the latest software-dev jobs, filtering
+out unrelated work, excluding Market Circuit jobs involving betting, prediction
+markets, Polymarket, or options trading, and reconciling the results into
+`data/dashboard-lane-jobs.json`.
 
 ### 5. Export proposal history
 

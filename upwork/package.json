@@ -17,7 +17,7 @@
     "jobs:sample": "node src/fetchJobs.js 10",
     "me": "node src/me.js",
     "proposals": "node src/fetchProposalHistory.js",
-    "test": "node --test dashboard/src/*.test.js"
+    "test": "node --test src/*.test.js dashboard/src/*.test.js"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.2",

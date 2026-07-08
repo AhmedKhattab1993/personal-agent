@@ -13,6 +13,7 @@ const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const APP_ROOT = fileURLToPath(new URL('..', import.meta.url));
 const DASHBOARD_ROOT = join(APP_ROOT, 'dashboard');
 const DIST_ROOT = join(DASHBOARD_ROOT, 'dist');
+const HOURLY_REFRESH_MS = 60 * 60 * 1000;
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -118,16 +119,47 @@ async function createAppServer() {
   });
 }
 
+export function startHourlyDashboardRefresh({
+  refresh = refreshDashboardJobs,
+  intervalMs = HOURLY_REFRESH_MS,
+  setIntervalFn = setInterval,
+  clearIntervalFn = clearInterval,
+  logger = console,
+} = {}) {
+  let refreshing = false;
+  const refreshOnInterval = async () => {
+    if (refreshing) {
+      logger.warn('Skipped dashboard auto-refresh because the previous refresh is still running.');
+      return;
+    }
+    refreshing = true;
+    try {
+      await refresh();
+      logger.log('Dashboard auto-refresh completed.');
+    } catch (error) {
+      logger.error('Dashboard auto-refresh failed:', error.message);
+    } finally {
+      refreshing = false;
+    }
+  };
+
+  const timer = setIntervalFn(refreshOnInterval, intervalMs);
+  timer.unref?.();
+  return () => clearIntervalFn(timer);
+}
+
 export async function startDashboardServer() {
   const server = await createAppServer();
   await new Promise((resolveListen) => {
     server.listen(PORT, HOST, resolveListen);
   });
+  const stopHourlyRefresh = startHourlyDashboardRefresh();
+  server.on('close', stopHourlyRefresh);
   console.log(`Dashboard running at http://${HOST}:${PORT}`);
   if (PUBLIC_HOST) {
     console.log(`Tailnet URL: http://${PUBLIC_HOST}:${PORT}`);
   }
-  console.log('Refresh uses the Upwork API through existing OAuth tokens.');
+  console.log('Refresh uses the Upwork API through existing OAuth tokens and runs automatically every hour.');
   return server;
 }
 
