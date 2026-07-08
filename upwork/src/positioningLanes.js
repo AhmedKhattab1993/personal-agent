@@ -1,14 +1,14 @@
 export const LANES = [
   {
     id: 'trading',
-    label: 'Trading',
-    description: 'Trading systems, broker APIs, dashboards, backtesting, execution tools.',
+    label: 'Market Circuit',
+    description: 'Trading-related market intelligence, broker APIs, dashboards, backtesting, and execution tools.',
     avoidedExpectation: 'AI will make profitable trades.',
   },
   {
     id: 'ai-agents',
-    label: 'AI Agents',
-    description: 'Workflow agents, research agents, CRM agents, ecommerce agents, internal ops copilots.',
+    label: 'Upwork Circuit',
+    description: 'AI-related jobs, products, agents, LLM workflows, copilots, RAG, and video work.',
     avoidedExpectation: 'AI will generate trading returns.',
   },
   {

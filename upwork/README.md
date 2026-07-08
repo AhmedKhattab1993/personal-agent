@@ -63,19 +63,19 @@ semantic trend tags to fetched jobs.
 Use [docs/upwork-ai-agents-profile.md](docs/upwork-ai-agents-profile.md) for
 copy-ready Upwork profile text focused on AI agents and workflow automation.
 
-### 4. Run Work Circuit Opportunity Radar
+### 4. Run Upwork Dashboard
 
 ```sh
 npm run dashboard
 ```
 
-Open <http://studio.tailcc4c77.ts.net:5173>. Work Circuit Opportunity Radar
+Open <http://studio.tailcc4c77.ts.net:5173>. The personal Upwork dashboard
 binds to all local interfaces by default so it is reachable over Tailscale. It
 shows only jobs that match the three lanes in [docs/positioning-plan.md](docs/positioning-plan.md):
-Trading, AI Agents, and Automation.
+Market Circuit, Upwork Circuit, and Automation.
 
 The **Refresh** button calls the Upwork API, fetches the latest software-dev
-jobs, filters out unrelated work, excludes trading jobs involving betting,
+jobs, filters out unrelated work, excludes Market Circuit jobs involving betting,
 prediction markets, Polymarket, or options trading, and reconciles the results
 into `data/dashboard-lane-jobs.json`.
 
@@ -104,7 +104,7 @@ posting details that the current OAuth app can read.
 | `src/fetchJobs.js`  | Native-recency software-development job exporter |
 | `src/dashboardServer.js` | Local dashboard server and API refresh endpoint |
 | `src/dashboardStore.js` | Lane-filtered dashboard cache and reconciliation logic |
-| `src/positioningLanes.js` | Trading / AI Agents / Automation lane classifier |
+| `src/positioningLanes.js` | Market Circuit / Upwork Circuit / Automation lane classifier |
 | `src/fetchProposalHistory.js` | Freelancer proposal-history JSON exporter |
 | `src/me.js`         | Minimal auth smoke test |
 

@@ -8,12 +8,16 @@ AK Coding is the holding company and legal operating entity behind the brands. I
 
 **Domain:** marketcircuit.ai
 
-Market Circuit is an AI-assisted market intelligence brand focused on stocks, earnings, market-moving news, research briefs, dashboards, alerts, and future subscription products. The brand should be positioned around market intelligence and decision support, not trading signals or investment advice.
+Market Circuit is the trading-related lane and brand. It covers stocks, earnings, market-moving news, research briefs, dashboards, alerts, trading infrastructure, broker APIs, market data, backtesting, and future market-intelligence products. The brand should be positioned around market intelligence, decision support, and trading software, not investment advice or guaranteed trading returns.
 
-## Work Circuit
+## Upwork Circuit
 
-**Domain:** workcircuit.ai
+Upwork Circuit is the AI-related Upwork lane. It covers AI jobs, AI products, AI agents, LLM workflows, RAG, copilots, and video work for AI-related products or services.
 
-Work Circuit is an AI agents and workflow automation brand focused on helping businesses automate operational work. It supports current client services such as AI agent builds, internal tools, workflow automation, and integrations, while leaving room for future products such as templates, managed agents, and automation platforms.
+## Automation
 
-The Upwork opportunity dashboard is a Work Circuit surface. Product UI should lead with Work Circuit naming, use the purple Work Circuit mark, and treat Upwork as a data source rather than the product brand.
+Automation is not a brand. Keep it as a plain operating lane for API integrations, data pipelines, alerts, reports, and deterministic business process automation.
+
+## Upwork Dashboard
+
+The Upwork dashboard is a personal management tool for sorting and acting on Upwork opportunities. It should not carry any lane identity as the product brand. It can show lane names so each opportunity is routed correctly.

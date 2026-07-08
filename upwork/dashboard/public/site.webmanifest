@@ -1,23 +1,9 @@
 {
-  "name": "Work Circuit Opportunity Radar",
-  "short_name": "Work Circuit",
-  "description": "Client opportunities ranked by fit, signal, and proposal readiness.",
+  "name": "Upwork Dashboard",
+  "short_name": "Upwork",
+  "description": "Personal dashboard for managing Upwork opportunities.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#070611",
-  "theme_color": "#120a22",
-  "icons": [
-    {
-      "src": "/workcircuit-icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/workcircuit-icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any"
-    }
-  ]
+  "theme_color": "#111827"
 }

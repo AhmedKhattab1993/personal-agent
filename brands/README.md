@@ -22,7 +22,7 @@
 ## Usage
 
 - `AK Coding` is the legal and contracting layer.
-- `Work Circuit` is the visible brand for AI agents, workflow automation, proposal, and opportunity-radar surfaces.
-- `Market Circuit` is the visible brand for market intelligence, research, alerting, and decision-support surfaces.
-- Use the Work Circuit SVG master for UI headers, favicons, and app-icon exports. Reserve dark and glow variants for marketing or social graphics.
-- Dashboard-local exports live under `upwork/dashboard/public/` so the Vite app can serve branded favicons and social previews directly.
+- `Market Circuit` is the visible brand for trading-related market intelligence, research, alerting, decision-support, and trading-software surfaces.
+- `Upwork Circuit` is the AI-related Upwork lane for AI jobs, AI products, AI agents, and AI/product video work.
+- `Automation` is not a brand. Keep automation work as a plain lane.
+- The Upwork dashboard is personal management tooling, not a branded product surface for any lane.

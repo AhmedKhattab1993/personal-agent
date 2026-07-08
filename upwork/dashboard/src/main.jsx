@@ -45,22 +45,20 @@ import {
 import './styles.css';
 
 const BRAND = {
-  name: 'Work Circuit',
-  product: 'Opportunity Radar',
-  icon: '/workcircuit-mark.svg',
+  name: 'Upwork Dashboard',
 };
 
 const LANES = [
   {
     id: 'trading',
-    label: 'Trading',
+    label: 'Market Circuit',
     icon: TrendingUp,
     color: 'border-l-cyan-300',
     badge: 'bg-cyan-950/80 text-cyan-100 border-cyan-300/70',
   },
   {
     id: 'ai-agents',
-    label: 'AI Agents',
+    label: 'Upwork Circuit',
     icon: Bot,
     color: 'border-l-violet-300',
     badge: 'bg-violet-950/80 text-violet-100 border-violet-300/70',
@@ -103,9 +101,9 @@ function statusVariant(status) {
 }
 
 function countLanes(records) {
-  const counts = Object.fromEntries(LANES.map((lane) => [lane.label, 0]));
+  const counts = Object.fromEntries(LANES.map((lane) => [lane.id, 0]));
   for (const record of records) {
-    counts[record.lane] = (counts[record.lane] ?? 0) + 1;
+    counts[record.laneId] = (counts[record.laneId] ?? 0) + 1;
   }
   return counts;
 }
@@ -251,13 +249,13 @@ function App() {
       <div className="mx-auto flex max-w-7xl flex-col gap-5">
         <section className="flex flex-col gap-5 rounded-lg border bg-card/95 p-5 shadow-sm shadow-black/25 backdrop-blur md:flex-row md:items-center md:justify-between">
           <div className="flex max-w-4xl flex-col gap-4 sm:flex-row sm:items-center">
-            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg border border-violet-300/35 bg-background/70 p-2 shadow-sm shadow-violet-950/40">
-              <img src={BRAND.icon} alt={BRAND.name} className="h-full w-full object-contain" />
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg border border-slate-500/35 bg-background/70 shadow-sm shadow-black/25">
+              <BriefcaseBusiness className="h-8 w-8 text-slate-100" aria-hidden="true" />
             </div>
             <div>
               <div className="mb-2 flex flex-wrap items-center gap-2">
-                <Badge variant="outline" className="border-violet-300/50 bg-violet-950/45 text-violet-100">{BRAND.name}</Badge>
-                <Badge variant="secondary">Client opportunity radar</Badge>
+                <Badge variant="outline" className="bg-background/60">{BRAND.name}</Badge>
+                <Badge variant="secondary">Personal opportunity manager</Badge>
                 <Badge variant="outline" className="bg-background/60">Upwork source</Badge>
                 {piClassifier?.classifiedCount > 0 && (
                   <Badge variant="outline" className="bg-background/60">
@@ -265,9 +263,9 @@ function App() {
                   </Badge>
                 )}
               </div>
-              <h1 className="text-2xl font-semibold tracking-normal sm:text-3xl">{BRAND.name} {BRAND.product}</h1>
+              <h1 className="text-2xl font-semibold tracking-normal sm:text-3xl">{BRAND.name}</h1>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-200">
-                Fresh client opportunities organized by fit, signal, and proposal readiness.
+                Personal dashboard for managing Upwork opportunities by lane, fit, signal, and proposal readiness.
               </p>
             </div>
           </div>
@@ -284,7 +282,7 @@ function App() {
             <CardContent className="flex items-start gap-3 p-4">
               <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
               <div>
-                <p className="font-medium">Radar error</p>
+                <p className="font-medium">Dashboard error</p>
                 <p className="mt-1 text-sm">{error}</p>
               </div>
             </CardContent>
@@ -302,12 +300,12 @@ function App() {
                       <Icon className="h-5 w-5" />
                       {item.label}
                     </CardTitle>
-                    <span className="text-2xl font-semibold">{laneCounts[item.label] ?? 0}</span>
+                    <span className="text-2xl font-semibold">{laneCounts[item.id] ?? 0}</span>
                   </div>
                   <CardDescription>
-                    {item.id === 'trading' && 'Market systems, broker APIs, backtesting, dashboards.'}
-                    {item.id === 'ai-agents' && 'OpenAI, Claude, RAG, copilots, workflow agents.'}
-                    {item.id === 'automation' && 'APIs, pipelines, reports, alerts, process automation.'}
+                    {item.id === 'trading' && 'Trading-related jobs for Market Circuit work.'}
+                    {item.id === 'ai-agents' && 'AI-related jobs, products, and video work.'}
+                    {item.id === 'automation' && 'Unbranded automation work kept as its own lane.'}
                   </CardDescription>
                 </CardHeader>
               </Card>
@@ -364,7 +362,7 @@ function App() {
           <Card>
             <CardContent className="flex items-center gap-3 p-6 text-muted-foreground">
               <RefreshCcw className="h-4 w-4 animate-spin" />
-              Loading opportunity radar...
+              Loading Upwork dashboard...
             </CardContent>
           </Card>
         ) : (
@@ -378,7 +376,7 @@ function App() {
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                       <div className="min-w-0">
                         <div className="mb-2 flex flex-wrap items-center gap-2">
-                          <Badge className={meta.badge}>{job.lane}</Badge>
+                          <Badge className={meta.badge}>{meta.label}</Badge>
                           <Badge variant={statusVariant(job.status)}>{job.status}</Badge>
                           {job.budget && <Badge variant="outline">{job.budget}</Badge>}
                           <Badge variant="outline" title={formatOpportunityTitle(opportunity)} className="gap-1">
@@ -463,7 +461,7 @@ function App() {
           <DialogContent onClick={(event) => event.stopPropagation()}>
             <DialogHeader>
               <div className="mb-3 flex flex-wrap items-center gap-2">
-                <Badge className={laneMeta(selectedJob.laneId).badge}>{selectedJob.lane}</Badge>
+                <Badge className={laneMeta(selectedJob.laneId).badge}>{laneMeta(selectedJob.laneId).label}</Badge>
                 <Badge variant={statusVariant(selectedJob.status)}>{selectedJob.status}</Badge>
                 {selectedJob.budget && <Badge variant="outline">{selectedJob.budget}</Badge>}
                 <Badge variant="outline" title={formatOpportunityTitle(selectedOpportunity)} className="gap-1">
