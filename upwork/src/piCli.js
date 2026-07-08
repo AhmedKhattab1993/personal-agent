@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 
 export const DEFAULT_PI_MODEL = 'zai/glm-5.2';
+export const DEFAULT_PI_NODE_PATH = '/opt/homebrew/bin/node';
 export const DEFAULT_PI_CLI_PATH = '/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/dist/cli.js';
 export const DEFAULT_PI_TIMEOUT_MS = 180_000;
 export const DEFAULT_PI_THINKING = 'off';
@@ -39,7 +40,8 @@ export function extractJsonValue(output) {
 
 export function runPi(args, options) {
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, args, {
+    const nodePath = options.nodePath ?? process.env.PI_NODE_PATH ?? DEFAULT_PI_NODE_PATH;
+    const child = spawn(nodePath, args, {
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     let stdout = '';
@@ -78,6 +80,7 @@ export function runPi(args, options) {
 
 export async function runPiPrompt(prompt, options = {}) {
   const model = options.model ?? process.env.PI_MODEL ?? DEFAULT_PI_MODEL;
+  const piNodePath = options.piNodePath ?? process.env.PI_NODE_PATH ?? DEFAULT_PI_NODE_PATH;
   const piCliPath = options.piCliPath ?? process.env.PI_CLI_PATH ?? DEFAULT_PI_CLI_PATH;
   const thinking = options.thinking ?? process.env.PI_THINKING ?? DEFAULT_PI_THINKING;
   const timeoutMs = parsePositiveInt(options.timeoutMs ?? process.env.PI_TIMEOUT_MS, DEFAULT_PI_TIMEOUT_MS);
@@ -95,7 +98,7 @@ export async function runPiPrompt(prompt, options = {}) {
       '--approve',
       '-p',
       prompt,
-    ], { timeoutMs });
+    ], { timeoutMs, nodePath: piNodePath });
 
     if (result.stderr.trim()) process.stderr.write(result.stderr);
     return { ...result, model };
@@ -105,6 +108,7 @@ export async function runPiPrompt(prompt, options = {}) {
     const details = [
       `pi failed`,
       `model=${model}`,
+      `node=${piNodePath}`,
       `cli=${piCliPath}`,
       error.signal ? `signal=${error.signal}` : null,
       error.code ? `code=${error.code}` : null,

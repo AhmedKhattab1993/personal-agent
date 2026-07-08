@@ -11,6 +11,7 @@ import {
 import { LANES } from './positioningLanes.js';
 
 const DEFAULT_CONCURRENCY = 4;
+const DEFAULT_BATCH_SIZE = 12;
 const MAX_DESCRIPTION_CHARS = 260;
 const VALID_LANE_IDS = new Set([...LANES.map((lane) => lane.id), 'reject']);
 
@@ -32,17 +33,17 @@ function keywordSignals(laneInfo) {
   };
 }
 
-function promptForJob(item, retry = false) {
+function promptForBatch(items, retry = false) {
   const retryPrefix = retry
     ? 'Your previous output was invalid. Return complete minified JSON only, no markdown, no truncation.\n'
     : '';
-  return `${retryPrefix}Strictly classify this Upwork job. Keyword lane is only a hint.
-Return JSON object only: {"id":"${item.id}","laneId":"trading|ai-agents|automation|reject","rationale":"under 18 words"}
+  return `${retryPrefix}Strictly classify these Upwork jobs. Keyword lane is only a hint.
+Return JSON array only, one object per input in the same order: [{"id":"...","laneId":"trading|ai-agents|automation|reject","rationale":"under 18 words"}]
 trading=broker APIs, market data, backtesting, execution dashboards, Pine Script, TradingView, MT4/MT5, IBKR, Alpaca, Binance API. Reject AI profit promises, betting, Polymarket, prediction markets, gambling, options trading.
 ai-agents=business workflow/research/reporting/CRM/ecommerce/support/internal agents or copilots using Claude/OpenAI/LangChain/RAG with clear workflow/data. Reject AI trading returns or vague chatbot-only jobs.
 automation=API integrations, data pipelines, alerts, reports, webhooks, Zapier/Make/n8n, Sheets/Airtable/Slack/CRM integrations, document parsing, repeatable process automation.
 Reject ordinary website/app builds, Shopify setup, pure design, mobile app dev, QA, DevOps, generic backend, or outside these lanes.
-Job=${JSON.stringify(item)}`;
+Jobs=${JSON.stringify(items)}`;
 }
 
 function validateDecision(decision, jobId) {
@@ -66,29 +67,34 @@ function validateDecision(decision, jobId) {
   return { id, laneId, rationale };
 }
 
-async function classifyOne(item, options) {
-  const model = options.model ?? DEFAULT_PI_MODEL;
-  const piCliPath = options.piCliPath ?? DEFAULT_PI_CLI_PATH;
+async function classifyBatch(items, options) {
   let lastJsonError = null;
 
   for (let attempt = 1; attempt <= 2; attempt += 1) {
-    const prompt = promptForJob(item, attempt > 1);
-    const result = await runPiPrompt(prompt, {
-      model,
-      piCliPath,
-      thinking: options.thinking ?? DEFAULT_PI_THINKING,
-      timeoutMs: options.timeoutMs ?? DEFAULT_PI_TIMEOUT_MS,
-    }).catch((error) => {
-      throw new Error(error.message.replace('pi failed', `pi classifier failed for job ${item.id}`));
+    const prompt = promptForBatch(items, attempt > 1);
+    const result = await runPiPrompt(prompt, options).catch((error) => {
+      const ids = items.map((item) => item.id).join(',');
+      throw new Error(error.message.replace('pi failed', `pi classifier failed for jobs ${ids}`));
     });
 
     try {
       const value = extractJsonValue(result.stdout);
-      const decision = validateDecision(Array.isArray(value) ? value[0] : value, item.id);
-      return { ...decision, model: result.model };
+      if (!Array.isArray(value)) {
+        throw new Error('pi classifier returned non-array batch response');
+      }
+      const decisionsById = new Map();
+      for (const decision of value) {
+        if (decision?.id && !decisionsById.has(String(decision.id))) {
+          decisionsById.set(String(decision.id), decision);
+        }
+      }
+      return items.map((item) => ({
+        ...validateDecision(decisionsById.get(item.id), item.id),
+        model: result.model,
+      }));
     } catch (error) {
       lastJsonError = error;
-      process.stderr.write(`PI lane retry ${attempt}/2 for ${item.id}: ${error.message}\n`);
+      process.stderr.write(`PI lane batch retry ${attempt}/2: ${error.message}\n`);
     }
   }
 
@@ -138,22 +144,29 @@ export async function classifyLaneCandidatesWithPi(items, options = {}) {
   const piCliPath = options.piCliPath ?? process.env.PI_CLI_PATH ?? DEFAULT_PI_CLI_PATH;
   const timeoutMs = parsePositiveInt(options.timeoutMs ?? process.env.PI_LANE_TIMEOUT_MS, DEFAULT_PI_TIMEOUT_MS);
   const thinking = options.thinking ?? process.env.PI_LANE_THINKING ?? DEFAULT_PI_THINKING;
+  const batchSize = parsePositiveInt(options.batchSize ?? process.env.PI_LANE_BATCH_SIZE, DEFAULT_BATCH_SIZE);
   const classificationItems = buildPiClassificationItems(items);
+  const batches = [];
+  for (let index = 0; index < classificationItems.length; index += batchSize) {
+    batches.push(classificationItems.slice(index, index + batchSize));
+  }
   const decisionsById = new Map();
   let nextIndex = 0;
 
   async function worker() {
-    while (nextIndex < classificationItems.length) {
+    while (nextIndex < batches.length) {
       const index = nextIndex;
       nextIndex += 1;
-      const item = classificationItems[index];
-      process.stderr.write(`PI lane job ${index + 1}/${classificationItems.length} ${item.id}\n`);
-      const decision = await classifyOne(item, { model, piCliPath, timeoutMs, thinking });
-      decisionsById.set(decision.id, decision);
+      const batch = batches[index];
+      process.stderr.write(`PI lane batch ${index + 1}/${batches.length} ${batch[0].id}..${batch[batch.length - 1].id}\n`);
+      const decisions = await classifyBatch(batch, { model, piCliPath, timeoutMs, thinking });
+      for (const decision of decisions) {
+        decisionsById.set(decision.id, decision);
+      }
     }
   }
 
-  await Promise.all(Array.from({ length: Math.min(concurrency, classificationItems.length) }, () => worker()));
+  await Promise.all(Array.from({ length: Math.min(concurrency, batches.length) }, () => worker()));
 
   return items.map((item) => {
     const decision = decisionsById.get(String(item.job.id));
