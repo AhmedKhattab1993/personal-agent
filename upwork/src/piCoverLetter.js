@@ -32,6 +32,7 @@ function promptForCoverLetter(job, retry = false) {
   return `${retryPrefix}Write a concise Upwork proposal cover letter for Ahmed Khattab.
 Return JSON only: {"coverLetter":"..."}
 Style: direct, confident, practical, no hype, no greeting, no signoff, no placeholders, no markdown.
+Voice: human and specific, like a freelancer writing from direct experience. Avoid AI-generated proposal patterns: generic enthusiasm, broad claims, buzzword stacking, repeated sentence shapes, "I can help you", "I understand your needs", and filler transitions.
 Length: 90-140 words before the fixed final paragraph.
 Mention only relevant fit. Do not promise guaranteed trading returns. Do not mention that AI generated this.
 The system will add the greeting, this exact final paragraph, and the Thanks/Ahmed signoff after your cover letter, so do not write or paraphrase them yourself: ${ASYNC_COMMUNICATION_CLOSING}
