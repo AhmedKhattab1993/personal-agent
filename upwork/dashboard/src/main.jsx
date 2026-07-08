@@ -10,6 +10,7 @@ import {
   Clock,
   DatabaseZap,
   FileText,
+  Gauge,
   MessageSquareText,
   RefreshCcw,
   Search,
@@ -34,6 +35,12 @@ import {
   Input,
   Select,
 } from './components/ui.jsx';
+import {
+  estimateOpportunity,
+  formatOpportunityBadge,
+  formatOpportunityTitle,
+  sortJobsForDisplay,
+} from './opportunityScore.js';
 import './styles.css';
 
 const BRAND = {
@@ -99,6 +106,7 @@ function App() {
   const [error, setError] = useState(null);
   const [query, setQuery] = useState('');
   const [lane, setLane] = useState('all');
+  const [sortMode, setSortMode] = useState('newest');
   const [selectedJob, setSelectedJob] = useState(null);
   const [coverLetterLoading, setCoverLetterLoading] = useState(false);
   const [coverLetterError, setCoverLetterError] = useState(null);
@@ -189,7 +197,7 @@ function App() {
   const jobs = data?.jobs ?? [];
   const filteredJobs = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    return jobs.filter((job) => {
+    const visible = jobs.filter((job) => {
       if (lane !== 'all' && job.laneId !== lane) return false;
       if (!needle) return true;
       const haystack = [
@@ -204,12 +212,14 @@ function App() {
       ].join(' ').toLowerCase();
       return haystack.includes(needle);
     });
-  }, [jobs, lane, query]);
+    return sortJobsForDisplay(visible, sortMode);
+  }, [jobs, lane, query, sortMode]);
 
   const newest = jobs[0]?.publishedDateTime ?? data?.summary?.generatedAt;
   const laneCounts = data?.summary?.laneCounts ?? {};
   const statusCounts = data?.summary?.statusCounts ?? {};
   const piClassifier = data?.summary?.piClassifier;
+  const selectedOpportunity = selectedJob ? estimateOpportunity(selectedJob) : null;
 
   return (
     <main className="min-h-screen px-4 py-5 sm:px-6 lg:px-8">
@@ -282,7 +292,7 @@ function App() {
 
         <section className="grid gap-4 lg:grid-cols-[1fr_20rem]">
           <Card>
-            <CardContent className="grid gap-3 p-4 md:grid-cols-[1fr_12rem]">
+            <CardContent className="grid gap-3 p-4 md:grid-cols-[1fr_12rem_14rem]">
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -292,9 +302,13 @@ function App() {
                   className="pl-9"
                 />
               </div>
-              <Select value={lane} onChange={(event) => setLane(event.target.value)}>
+              <Select aria-label="Lane filter" value={lane} onChange={(event) => setLane(event.target.value)}>
                 <option value="all">All lanes</option>
                 {LANES.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+              </Select>
+              <Select aria-label="Sort jobs" value={sortMode} onChange={(event) => setSortMode(event.target.value)}>
+                <option value="newest">Newest first</option>
+                <option value="opportunity">Highest opportunity</option>
               </Select>
             </CardContent>
           </Card>
@@ -327,6 +341,7 @@ function App() {
           <section className="grid gap-4">
             {filteredJobs.map((job) => {
               const meta = laneMeta(job.laneId);
+              const opportunity = estimateOpportunity(job);
               return (
                 <Card key={job.id} className={`overflow-hidden border-l-4 ${meta.color}`}>
                   <CardHeader className="gap-3">
@@ -336,6 +351,10 @@ function App() {
                           <Badge className={meta.badge}>{job.lane}</Badge>
                           <Badge variant={statusVariant(job.status)}>{job.status}</Badge>
                           {job.budget && <Badge variant="outline">{job.budget}</Badge>}
+                          <Badge variant="outline" title={formatOpportunityTitle(opportunity)} className="gap-1">
+                            <Gauge className="h-3 w-3" />
+                            {formatOpportunityBadge(opportunity)}
+                          </Badge>
                           {job.experienceLevel && <Badge variant="outline">{job.experienceLevel}</Badge>}
                         </div>
                         <CardTitle className="text-lg leading-6">{job.title}</CardTitle>
@@ -417,6 +436,10 @@ function App() {
                 <Badge className={laneMeta(selectedJob.laneId).badge}>{selectedJob.lane}</Badge>
                 <Badge variant={statusVariant(selectedJob.status)}>{selectedJob.status}</Badge>
                 {selectedJob.budget && <Badge variant="outline">{selectedJob.budget}</Badge>}
+                <Badge variant="outline" title={formatOpportunityTitle(selectedOpportunity)} className="gap-1">
+                  <Gauge className="h-3 w-3" />
+                  {formatOpportunityBadge(selectedOpportunity)}
+                </Badge>
                 {selectedJob.experienceLevel && <Badge variant="outline">{selectedJob.experienceLevel}</Badge>}
               </div>
               <DialogTitle>{selectedJob.title}</DialogTitle>
