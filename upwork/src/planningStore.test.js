@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { mkdtemp, mkdir, readFile, rm } from 'node:fs/promises';
+import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 
@@ -48,6 +48,19 @@ test('persists directory-backed projects and outcome-oriented goals', async (con
   const finalBoard = await loadPlanningBoard({ filePath });
   assert.equal(finalBoard.projects.length, 0);
   assert.equal(finalBoard.goals.length, 0);
+});
+
+test('stores home-relative project directories portably', async (context) => {
+  const directory = await mkdtemp(join(tmpdir(), 'planning-board-'));
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  const filePath = join(directory, 'planning.json');
+
+  await createPlanningProject({ name: 'Home', directory: homedir() }, { filePath });
+  const persisted = JSON.parse(await readFile(filePath, 'utf8'));
+  assert.equal(persisted.projects[0].directory, '~');
+
+  const loaded = await loadPlanningBoard({ filePath });
+  assert.equal(loaded.projects[0].directory, homedir());
 });
 
 test('rejects project paths that are not existing directories', async (context) => {

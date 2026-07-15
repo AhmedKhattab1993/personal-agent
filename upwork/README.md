@@ -84,7 +84,9 @@ The **Projects** tab is a local planning system for agent-ready work. Link each
 project to an existing directory on disk, then define goals by desired outcome,
 definition of done, and explicit non-goals. Goals move through Backlog, Ready,
 In progress, Blocked, and Done, and can be copied as a directory-aware agent
-brief. Planning data is stored in `data/planning-board.json`.
+brief. Planning data is stored in the Git-tracked `data/planning-board.json` so
+projects and goals survive machine migrations. Home-relative project paths are
+persisted with `~/` and resolved for the current machine.
 
 Opening the goal editor also opens a PI goal partner beside the form. PI runs
 with the selected project directory as its working directory and only the

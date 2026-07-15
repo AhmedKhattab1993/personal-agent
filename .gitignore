@@ -12,8 +12,10 @@ dashboard/dist/
 upwork/dashboard/dist/
 
 # generated data
-data/
-upwork/data/
+/data/
+upwork/data/*
+# The planning board is durable user-authored state and is versioned.
+!upwork/data/planning-board.json
 
 # misc
 .DS_Store

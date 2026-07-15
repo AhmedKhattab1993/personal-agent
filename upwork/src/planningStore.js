@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { access, mkdir, readFile, rename, stat, writeFile } from 'node:fs/promises';
+import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -18,8 +19,20 @@ function cleanText(value, { required = false, label = 'Value' } = {}) {
   return result;
 }
 
+function expandDirectory(directory) {
+  const value = cleanText(directory, { required: true, label: 'Directory' });
+  return resolve(value === '~' ? homedir() : value.startsWith('~/') ? join(homedir(), value.slice(2)) : value);
+}
+
+function persistDirectory(directory) {
+  const home = homedir();
+  return directory === home || directory.startsWith(`${home}/`)
+    ? `~${directory.slice(home.length)}`
+    : directory;
+}
+
 async function assertDirectory(directory) {
-  const normalized = resolve(cleanText(directory, { required: true, label: 'Directory' }));
+  const normalized = expandDirectory(directory);
   await access(normalized);
   const details = await stat(normalized);
   if (!details.isDirectory()) throw new Error('Directory must point to a folder on disk');
@@ -32,7 +45,9 @@ export async function loadPlanningBoard({ filePath = DEFAULT_PLANNING_FILE } = {
     return {
       ...emptyBoard(),
       ...board,
-      projects: Array.isArray(board.projects) ? board.projects : [],
+      projects: Array.isArray(board.projects)
+        ? board.projects.map((project) => ({ ...project, directory: expandDirectory(project.directory) }))
+        : [],
       goals: Array.isArray(board.goals) ? board.goals : [],
     };
   } catch (error) {
@@ -44,8 +59,15 @@ export async function loadPlanningBoard({ filePath = DEFAULT_PLANNING_FILE } = {
 async function savePlanningBoard(board, { filePath = DEFAULT_PLANNING_FILE } = {}) {
   const next = { ...board, updatedAt: new Date().toISOString() };
   await mkdir(dirname(filePath), { recursive: true });
+  const persisted = {
+    ...next,
+    projects: next.projects.map((project) => ({
+      ...project,
+      directory: persistDirectory(project.directory),
+    })),
+  };
   const temporary = `${filePath}.${process.pid}.tmp`;
-  await writeFile(temporary, `${JSON.stringify(next, null, 2)}\n`, 'utf8');
+  await writeFile(temporary, `${JSON.stringify(persisted, null, 2)}\n`, 'utf8');
   await rename(temporary, filePath);
   return next;
 }

@@ -5,6 +5,7 @@ import { promisify } from 'node:util';
 import { existsSync } from 'node:fs';
 import { extname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { gzip as gzipCallback } from 'node:zlib';
 
 import { loadEnv } from './config.js';
 import { loadDashboardJobs, refreshDashboardJobs, suggestCoverLetterForJob } from './dashboardStore.js';
@@ -29,6 +30,7 @@ const APP_ROOT = fileURLToPath(new URL('..', import.meta.url));
 const DASHBOARD_ROOT = join(APP_ROOT, 'dashboard');
 const DIST_ROOT = join(DASHBOARD_ROOT, 'dist');
 const HOURLY_REFRESH_MS = 60 * 60 * 1000;
+const gzip = promisify(gzipCallback);
 const execFileAsync = promisify(execFile);
 
 const MIME_TYPES = {
@@ -36,6 +38,8 @@ const MIME_TYPES = {
   '.js': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
   '.svg': 'image/svg+xml',
+  '.webp': 'image/webp',
+  '.webmanifest': 'application/manifest+json',
   '.json': 'application/json; charset=utf-8',
 };
 
@@ -144,11 +148,24 @@ async function serveStatic(req, res) {
     ? safePath
     : join(DIST_ROOT, 'index.html');
   const data = await readFile(candidate);
+  const extension = extname(candidate);
+  const acceptsGzip = /\bgzip\b/.test(req.headers['accept-encoding'] ?? '');
+  const compressible = ['.html', '.js', '.css', '.json', '.svg', '.webmanifest'].includes(extension);
+  const compressed = acceptsGzip && compressible;
+  const payload = compressed ? await gzip(data) : data;
+  const cacheControl = candidate.includes(`${DIST_ROOT}/assets/`)
+    ? 'public, max-age=31536000, immutable'
+    : candidate.endsWith('/index.html')
+      ? 'no-cache'
+      : 'public, max-age=3600';
   res.writeHead(200, {
-    'Content-Type': MIME_TYPES[extname(candidate)] ?? 'application/octet-stream',
-    ...NO_CACHE_HEADERS,
+    'Content-Type': MIME_TYPES[extension] ?? 'application/octet-stream',
+    'Content-Length': payload.length,
+    'Cache-Control': cacheControl,
+    Vary: 'Accept-Encoding',
+    ...(compressed ? { 'Content-Encoding': 'gzip' } : {}),
   });
-  res.end(data);
+  res.end(payload);
 }
 
 async function createAppServer() {
@@ -161,7 +178,6 @@ async function createAppServer() {
       server: {
         allowedHosts: true,
         middlewareMode: true,
-        headers: NO_CACHE_HEADERS,
       },
       appType: 'spa',
     });
