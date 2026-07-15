@@ -88,6 +88,7 @@ export default function PlanningBoard({ navigation }) {
   const [goalDialog, setGoalDialog] = useState(false);
   const [goalForm, setGoalForm] = useState(EMPTY_GOAL);
   const [editingGoal, setEditingGoal] = useState(null);
+  const [draggedProject, setDraggedProject] = useState(null);
   const [draggedGoal, setDraggedGoal] = useState(null);
   const [copiedGoal, setCopiedGoal] = useState(null);
   const [assistantMessages, setAssistantMessages] = useState([]);
@@ -209,6 +210,28 @@ export default function PlanningBoard({ navigation }) {
     finally { setSaving(false); }
   }
 
+  async function moveProject(projectId, targetId) {
+    if (!projectId || projectId === targetId) return;
+    const previous = board;
+    const sourceIndex = board.projects.findIndex((project) => project.id === projectId);
+    const targetIndex = board.projects.findIndex((project) => project.id === targetId);
+    if (sourceIndex < 0 || targetIndex < 0) return;
+    const projects = [...board.projects];
+    const [project] = projects.splice(sourceIndex, 1);
+    projects.splice(targetIndex, 0, project);
+    setBoard((current) => ({ ...current, projects }));
+    try {
+      setBoard(await api(`/api/planning/projects/${encodeURIComponent(projectId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ position: targetIndex }),
+      }));
+    } catch (moveError) {
+      setBoard(previous);
+      setError(moveError.message);
+    }
+  }
+
   async function moveGoal(goal, status) {
     if (goal.status === status) return;
     const previous = board;
@@ -253,7 +276,17 @@ export default function PlanningBoard({ navigation }) {
         <section className="planning-toolbar">
           <div className="project-switcher">
             <button className={projectFilter === 'all' ? 'active' : ''} onClick={() => setProjectFilter('all')}><span className="project-avatar all"><FolderGit2 /></span><span><strong>All projects</strong><small>{board.projects.length} linked directories</small></span></button>
-            {board.projects.map((project) => <button key={project.id} className={projectFilter === project.id ? 'active' : ''} onClick={() => setProjectFilter(project.id)}><span className="project-avatar" style={{ '--project-color': project.color }}>{initials(project.name)}</span><span><strong>{project.name}</strong><small>{board.goals.filter((goal) => goal.projectId === project.id && !['done', 'canceled'].includes(goal.status)).length} open goals</small></span></button>)}
+            {board.projects.map((project) => <button
+              key={project.id}
+              className={`project-tab ${projectFilter === project.id ? 'active' : ''} ${draggedProject === project.id ? 'dragging' : ''}`}
+              draggable
+              onDragStart={(event) => { setDraggedProject(project.id); event.dataTransfer.effectAllowed = 'move'; }}
+              onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; }}
+              onDrop={(event) => { event.preventDefault(); moveProject(draggedProject, project.id); setDraggedProject(null); }}
+              onDragEnd={() => setDraggedProject(null)}
+              onClick={() => setProjectFilter(project.id)}
+              title="Drag to reorder project"
+            ><GripVertical className="project-drag-handle" /><span className="project-avatar" style={{ '--project-color': project.color }}>{initials(project.name)}</span><span><strong>{project.name}</strong><small>{board.goals.filter((goal) => goal.projectId === project.id && !['done', 'canceled'].includes(goal.status)).length} open goals</small></span></button>)}
             <button className="add-project" onClick={() => openProject()}><Plus /> Link project</button>
             {projectFilter !== 'all' && projectMap[projectFilter] && <button className="edit-project" onClick={() => openProject(projectMap[projectFilter])}><Pencil /> Project settings</button>}
           </div>

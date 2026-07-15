@@ -101,7 +101,7 @@ export async function updatePlanningProject(projectId, input, options = {}) {
   if (board.projects.some((project) => project.id !== projectId && project.directory === directory)) {
     throw new Error('A project already uses this directory');
   }
-  board.projects[index] = {
+  const project = {
     ...current,
     name: input.name === undefined ? current.name : cleanText(input.name, { required: true, label: 'Project name' }),
     description: input.description === undefined ? current.description : cleanText(input.description),
@@ -109,7 +109,13 @@ export async function updatePlanningProject(projectId, input, options = {}) {
     color: /^#[0-9a-f]{6}$/i.test(input.color ?? '') ? input.color : current.color,
     updatedAt: new Date().toISOString(),
   };
-  return { board: await savePlanningBoard(board, options), project: board.projects[index] };
+  board.projects[index] = project;
+  if (Number.isFinite(input.position)) {
+    const targetIndex = Math.max(0, Math.min(board.projects.length - 1, Math.trunc(input.position)));
+    board.projects.splice(index, 1);
+    board.projects.splice(targetIndex, 0, project);
+  }
+  return { board: await savePlanningBoard(board, options), project };
 }
 
 export async function deletePlanningProject(projectId, options = {}) {

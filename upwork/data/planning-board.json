@@ -24,16 +24,16 @@
     {
       "id": "993cf579-30b6-4ee4-abc0-91d730bdb397",
       "projectId": "7b73b9bc-90c2-474c-8799-b0a894a3aa03",
-      "status": "in_progress",
+      "status": "done",
       "priority": "high",
-      "title": "Run a complete Halla We Tasa pipeline \u2014 agent-selected topic through all-agent orchestration \u2014 and publish the finished short to all platforms",
-      "outcome": "A new timestamped run under runs/halla-w-tasa/ that has passed every deterministic gate and visual-QC pass: a fully assembled 24-second vertical short (6 Google Flow clips \u00d7 4s, 1080\u00d71920, 24fps) with continuous Egyptian Arabic Gemini TTS narration, a complete submission package (video, thumbnail, copy, hashtags, Meta carousel), and a healthy run-health/retrospective \u2014 then published live with AI-content disclosure on every platform that supports it.",
-      "completionCriteria": "1. Run created via `npm run video:new -- --brand halla-w-tasa --topic \"<topic>\"` with topic novelty passing ledger check.\n2. Creative package validated: `npm run video:validate-flow -- --run <run-dir> --allow-missing-clips true` passes.\n3. Six Flow clips downloaded to `<run-dir>/flow-downloads/clip-01..06.mp4` and validated (`video:validate-flow` + `video:verify-flow-attachments` pass).\n4. Per-clip and transition-continuity visual QC archived and PASS (no WARN/FAIL).\n5. TTS generated, video assembled, submission finalized, Meta carousel created and validated.\n6. Full-video subagent review archived in logs/ ending with `VERDICT: PASS`.\n7. `video:health` and `video:retrospect` complete with healthy status.\n8. Ledger row updated to `submission_ready` in reports/video-generation-ledger.csv.\n9. Published with `--confirm-publish true` to YouTube (public), Meta Reel (Instagram+Facebook), Meta Carousel (Instagram+Facebook), and TikTok via Computer Use \u2014 AI/synthetic-content disclosure active on every surface; publish receipts preserved.",
-      "nonGoals": "Long-form YouTube content (8-12 min episodes \u2014 use the long-builder skill instead). Modifying pipeline/deterministic code or validators. Creating cron/launchd/background scheduling. Deleting or overwriting prior runs. Running multiple videos in one run. Manual creative copy/prompt authoring by deterministic modules.",
+      "title": "Run a complete Halla We Tasa pipeline — agent-selected topic through all-agent orchestration — and publish the finished short to all platforms",
+      "outcome": "A new timestamped run under runs/halla-w-tasa/ that has passed every deterministic gate and visual-QC pass: a fully assembled 24-second vertical short (6 Google Flow clips × 4s, 1080×1920, 24fps) with continuous Egyptian Arabic Gemini TTS narration, a complete submission package (video, thumbnail, copy, hashtags, Meta carousel), and a healthy run-health/retrospective — then published live with AI-content disclosure on every platform that supports it.",
+      "completionCriteria": "1. Run created via `npm run video:new -- --brand halla-w-tasa --topic \"<topic>\"` with topic novelty passing ledger check.\n2. Creative package validated: `npm run video:validate-flow -- --run <run-dir> --allow-missing-clips true` passes.\n3. Six Flow clips downloaded to `<run-dir>/flow-downloads/clip-01..06.mp4` and validated (`video:validate-flow` + `video:verify-flow-attachments` pass).\n4. Per-clip and transition-continuity visual QC archived and PASS (no WARN/FAIL).\n5. TTS generated, video assembled, submission finalized, Meta carousel created and validated.\n6. Full-video subagent review archived in logs/ ending with `VERDICT: PASS`.\n7. `video:health` and `video:retrospect` complete with healthy status.\n8. Ledger row updated to `submission_ready` in reports/video-generation-ledger.csv.\n9. Published with `--confirm-publish true` to YouTube (public), Meta Reel (Instagram+Facebook), Meta Carousel (Instagram+Facebook), and TikTok via Computer Use — AI/synthetic-content disclosure active on every surface; publish receipts preserved.",
+      "nonGoals": "Long-form YouTube content (8-12 min episodes — use the long-builder skill instead). Modifying pipeline/deterministic code or validators. Creating cron/launchd/background scheduling. Deleting or overwriting prior runs. Running multiple videos in one run. Manual creative copy/prompt authoring by deterministic modules.",
       "position": 0,
       "createdAt": "2026-07-13T11:28:20.705Z",
-      "updatedAt": "2026-07-13T11:28:20.705Z"
+      "updatedAt": "2026-07-15T14:12:36.199Z"
     }
   ],
-  "updatedAt": "2026-07-13T11:28:20.705Z"
+  "updatedAt": "2026-07-15T14:12:36.199Z"
 }

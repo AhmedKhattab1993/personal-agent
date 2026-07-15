@@ -11,6 +11,7 @@ import {
   deletePlanningProject,
   loadPlanningBoard,
   updatePlanningGoal,
+  updatePlanningProject,
 } from './planningStore.js';
 
 test('persists directory-backed projects and outcome-oriented goals', async (context) => {
@@ -48,6 +49,22 @@ test('persists directory-backed projects and outcome-oriented goals', async (con
   const finalBoard = await loadPlanningBoard({ filePath });
   assert.equal(finalBoard.projects.length, 0);
   assert.equal(finalBoard.goals.length, 0);
+});
+
+test('persists reordered projects', async (context) => {
+  const directory = await mkdtemp(join(tmpdir(), 'planning-board-'));
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  const filePath = join(directory, 'planning.json');
+  const projects = [];
+  for (const name of ['First', 'Second', 'Third']) {
+    const projectDirectory = join(directory, name.toLowerCase());
+    await mkdir(projectDirectory);
+    projects.push((await createPlanningProject({ name, directory: projectDirectory }, { filePath })).project);
+  }
+
+  await updatePlanningProject(projects[0].id, { position: 2 }, { filePath });
+  const reordered = await loadPlanningBoard({ filePath });
+  assert.deepEqual(reordered.projects.map((project) => project.name), ['Second', 'Third', 'First']);
 });
 
 test('stores home-relative project directories portably', async (context) => {

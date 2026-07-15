@@ -156,6 +156,11 @@ svg { width: 1rem; height: 1rem; stroke-width: 1.8; }
 .project-switcher button > span:last-child { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
 .project-switcher button strong { overflow: hidden; max-width: 145px; color: #dbe5e8; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
 .project-switcher button small { color: #879da6; font-size: 10px; }
+.project-switcher .project-tab { cursor: grab; }
+.project-switcher .project-tab:active { cursor: grabbing; }
+.project-switcher .project-tab.dragging { opacity: .42; }
+.project-drag-handle { width: 13px; height: 13px; flex: 0 0 auto; color: #607985; }
+.project-switcher .project-tab:hover .project-drag-handle { color: #8fa8b1; }
 .project-avatar { --project-color: #5ad9ca; display: grid !important; place-items: center; width: 36px; height: 36px; flex: 0 0 auto; border: 1px solid color-mix(in srgb, var(--project-color) 38%, transparent); border-radius: 9px; color: color-mix(in srgb, var(--project-color) 75%, white); font-size: 11px; font-weight: 800; background: color-mix(in srgb, var(--project-color) 10%, transparent); }
 .project-avatar.all { color: #78ded2; }.project-avatar.all svg { width: 14px; }
 .project-switcher .add-project, .project-switcher .edit-project { min-width: auto; border-style: dashed; color: #9bb3b8; font-size: 12px; }
