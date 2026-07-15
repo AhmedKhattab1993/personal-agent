@@ -93,7 +93,7 @@ export async function generateCoverLetterWithPi(job, options = {}) {
 
     try {
       return {
-        text: validateCoverLetter(extractJsonValue(result.stdout), job),
+        text: validateCoverLetter(extractJsonValue(result.stdout, 'object'), job),
         model: result.model,
         generatedAt: new Date().toISOString(),
       };

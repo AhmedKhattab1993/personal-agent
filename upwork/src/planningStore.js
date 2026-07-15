@@ -1,0 +1,153 @@
+import { randomUUID } from 'node:crypto';
+import { access, mkdir, readFile, rename, stat, writeFile } from 'node:fs/promises';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const APP_ROOT = fileURLToPath(new URL('..', import.meta.url));
+export const DEFAULT_PLANNING_FILE = join(APP_ROOT, 'data', 'planning-board.json');
+export const PLANNING_STATES = ['backlog', 'planned', 'in_progress', 'blocked', 'done', 'canceled'];
+export const PLANNING_PRIORITIES = ['no_priority', 'low', 'medium', 'high', 'urgent'];
+
+function emptyBoard() {
+  return { version: 1, projects: [], goals: [], updatedAt: new Date().toISOString() };
+}
+
+function cleanText(value, { required = false, label = 'Value' } = {}) {
+  const result = typeof value === 'string' ? value.trim() : '';
+  if (required && !result) throw new Error(`${label} is required`);
+  return result;
+}
+
+async function assertDirectory(directory) {
+  const normalized = resolve(cleanText(directory, { required: true, label: 'Directory' }));
+  await access(normalized);
+  const details = await stat(normalized);
+  if (!details.isDirectory()) throw new Error('Directory must point to a folder on disk');
+  return normalized;
+}
+
+export async function loadPlanningBoard({ filePath = DEFAULT_PLANNING_FILE } = {}) {
+  try {
+    const board = JSON.parse(await readFile(filePath, 'utf8'));
+    return {
+      ...emptyBoard(),
+      ...board,
+      projects: Array.isArray(board.projects) ? board.projects : [],
+      goals: Array.isArray(board.goals) ? board.goals : [],
+    };
+  } catch (error) {
+    if (error.code === 'ENOENT') return emptyBoard();
+    throw error;
+  }
+}
+
+async function savePlanningBoard(board, { filePath = DEFAULT_PLANNING_FILE } = {}) {
+  const next = { ...board, updatedAt: new Date().toISOString() };
+  await mkdir(dirname(filePath), { recursive: true });
+  const temporary = `${filePath}.${process.pid}.tmp`;
+  await writeFile(temporary, `${JSON.stringify(next, null, 2)}\n`, 'utf8');
+  await rename(temporary, filePath);
+  return next;
+}
+
+export async function createPlanningProject(input, options = {}) {
+  const board = await loadPlanningBoard(options);
+  const directory = await assertDirectory(input.directory);
+  if (board.projects.some((project) => project.directory === directory)) {
+    throw new Error('A project already uses this directory');
+  }
+  const now = new Date().toISOString();
+  const project = {
+    id: randomUUID(),
+    name: cleanText(input.name, { required: true, label: 'Project name' }),
+    description: cleanText(input.description),
+    directory,
+    color: /^#[0-9a-f]{6}$/i.test(input.color ?? '') ? input.color : '#5ad9ca',
+    createdAt: now,
+    updatedAt: now,
+  };
+  board.projects.push(project);
+  return { board: await savePlanningBoard(board, options), project };
+}
+
+export async function updatePlanningProject(projectId, input, options = {}) {
+  const board = await loadPlanningBoard(options);
+  const index = board.projects.findIndex((project) => project.id === projectId);
+  if (index < 0) throw new Error('Project not found');
+  const current = board.projects[index];
+  const directory = input.directory === undefined ? current.directory : await assertDirectory(input.directory);
+  if (board.projects.some((project) => project.id !== projectId && project.directory === directory)) {
+    throw new Error('A project already uses this directory');
+  }
+  board.projects[index] = {
+    ...current,
+    name: input.name === undefined ? current.name : cleanText(input.name, { required: true, label: 'Project name' }),
+    description: input.description === undefined ? current.description : cleanText(input.description),
+    directory,
+    color: /^#[0-9a-f]{6}$/i.test(input.color ?? '') ? input.color : current.color,
+    updatedAt: new Date().toISOString(),
+  };
+  return { board: await savePlanningBoard(board, options), project: board.projects[index] };
+}
+
+export async function deletePlanningProject(projectId, options = {}) {
+  const board = await loadPlanningBoard(options);
+  const index = board.projects.findIndex((project) => project.id === projectId);
+  if (index < 0) throw new Error('Project not found');
+  if (board.goals.some((goal) => goal.projectId === projectId)) {
+    throw new Error('Delete or move this project’s goals before unlinking it');
+  }
+  const [project] = board.projects.splice(index, 1);
+  return { board: await savePlanningBoard(board, options), project };
+}
+
+function validateGoalInput(input, board, current = {}) {
+  const projectId = input.projectId ?? current.projectId;
+  if (!board.projects.some((project) => project.id === projectId)) throw new Error('Choose a valid project');
+  const status = input.status ?? current.status ?? 'backlog';
+  if (!PLANNING_STATES.includes(status)) throw new Error('Invalid workflow state');
+  const priority = input.priority ?? current.priority ?? 'no_priority';
+  if (!PLANNING_PRIORITIES.includes(priority)) throw new Error('Invalid priority');
+  return {
+    projectId,
+    status,
+    priority,
+    title: input.title === undefined ? current.title : cleanText(input.title, { required: true, label: 'Goal title' }),
+    outcome: input.outcome === undefined ? current.outcome : cleanText(input.outcome, { required: true, label: 'Desired outcome' }),
+    completionCriteria: input.completionCriteria === undefined ? current.completionCriteria : cleanText(input.completionCriteria, { required: true, label: 'Completion definition' }),
+    nonGoals: input.nonGoals === undefined ? (current.nonGoals ?? '') : cleanText(input.nonGoals),
+  };
+}
+
+export async function createPlanningGoal(input, options = {}) {
+  const board = await loadPlanningBoard(options);
+  const now = new Date().toISOString();
+  const fields = validateGoalInput(input, board);
+  const siblings = board.goals.filter((goal) => goal.status === fields.status);
+  const goal = { id: randomUUID(), ...fields, position: siblings.length, createdAt: now, updatedAt: now };
+  board.goals.push(goal);
+  return { board: await savePlanningBoard(board, options), goal };
+}
+
+export async function updatePlanningGoal(goalId, input, options = {}) {
+  const board = await loadPlanningBoard(options);
+  const index = board.goals.findIndex((goal) => goal.id === goalId);
+  if (index < 0) throw new Error('Goal not found');
+  const current = board.goals[index];
+  const fields = validateGoalInput(input, board, current);
+  board.goals[index] = {
+    ...current,
+    ...fields,
+    position: Number.isFinite(input.position) ? input.position : current.position,
+    updatedAt: new Date().toISOString(),
+  };
+  return { board: await savePlanningBoard(board, options), goal: board.goals[index] };
+}
+
+export async function deletePlanningGoal(goalId, options = {}) {
+  const board = await loadPlanningBoard(options);
+  const index = board.goals.findIndex((goal) => goal.id === goalId);
+  if (index < 0) throw new Error('Goal not found');
+  const [goal] = board.goals.splice(index, 1);
+  return { board: await savePlanningBoard(board, options), goal };
+}

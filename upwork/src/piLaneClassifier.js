@@ -77,7 +77,7 @@ async function classifyBatch(items, options) {
     });
 
     try {
-      const value = extractJsonValue(result.stdout);
+      const value = extractJsonValue(result.stdout, 'array');
       if (!Array.isArray(value)) {
         throw new Error('pi classifier returned non-array batch response');
       }

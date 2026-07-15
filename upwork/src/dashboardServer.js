@@ -1,10 +1,25 @@
 import { createServer as createHttpServer } from 'node:http';
+import { execFile } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
+import { promisify } from 'node:util';
 import { existsSync } from 'node:fs';
 import { extname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
+import { loadEnv } from './config.js';
 import { loadDashboardJobs, refreshDashboardJobs, suggestCoverLetterForJob } from './dashboardStore.js';
+import { refineGoalWithPi } from './piGoalAssistant.js';
+import {
+  createPlanningGoal,
+  createPlanningProject,
+  deletePlanningProject,
+  deletePlanningGoal,
+  loadPlanningBoard,
+  updatePlanningGoal,
+  updatePlanningProject,
+} from './planningStore.js';
+
+await loadEnv();
 
 const PORT = Number(process.env.DASHBOARD_PORT ?? 5173);
 const HOST = process.env.DASHBOARD_HOST ?? '0.0.0.0';
@@ -14,6 +29,7 @@ const APP_ROOT = fileURLToPath(new URL('..', import.meta.url));
 const DASHBOARD_ROOT = join(APP_ROOT, 'dashboard');
 const DIST_ROOT = join(DASHBOARD_ROOT, 'dist');
 const HOURLY_REFRESH_MS = 60 * 60 * 1000;
+const execFileAsync = promisify(execFile);
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -52,6 +68,56 @@ async function readRequestJson(req) {
 
 async function handleApi(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
+  if (req.method === 'GET' && url.pathname === '/api/planning') {
+    return sendJson(res, 200, await loadPlanningBoard());
+  }
+  if (req.method === 'GET' && url.pathname === '/api/planning/choose-directory') {
+    if (process.platform !== 'darwin') return sendJson(res, 501, { error: 'Directory picking is currently supported on macOS only' });
+    try {
+      const { stdout } = await execFileAsync('osascript', ['-e', 'POSIX path of (choose folder with prompt "Choose a project directory")']);
+      return sendJson(res, 200, { directory: stdout.trim().replace(/\/$/, '') });
+    } catch (error) {
+      if (error.code === 1) return sendJson(res, 200, { canceled: true });
+      throw error;
+    }
+  }
+  if (req.method === 'POST' && url.pathname === '/api/planning/goal-assistant') {
+    const body = await readRequestJson(req);
+    const board = await loadPlanningBoard();
+    const project = board.projects.find((item) => item.id === body.projectId);
+    if (!project) return sendJson(res, 400, { error: 'Choose a valid project before chatting with the agent' });
+    const messages = Array.isArray(body.messages) ? body.messages : [];
+    if (!messages.some((message) => message?.role === 'user' && String(message.content ?? '').trim())) {
+      return sendJson(res, 400, { error: 'Send the agent a message first' });
+    }
+    return sendJson(res, 200, await refineGoalWithPi({ project, messages, draft: body.draft ?? {} }));
+  }
+  if (req.method === 'POST' && url.pathname === '/api/planning/projects') {
+    const result = await createPlanningProject(await readRequestJson(req));
+    return sendJson(res, 201, result.board);
+  }
+  const projectMatch = url.pathname.match(/^\/api\/planning\/projects\/([^/]+)$/);
+  if (req.method === 'PATCH' && projectMatch) {
+    const result = await updatePlanningProject(decodeURIComponent(projectMatch[1]), await readRequestJson(req));
+    return sendJson(res, 200, result.board);
+  }
+  if (req.method === 'DELETE' && projectMatch) {
+    const result = await deletePlanningProject(decodeURIComponent(projectMatch[1]));
+    return sendJson(res, 200, result.board);
+  }
+  if (req.method === 'POST' && url.pathname === '/api/planning/goals') {
+    const result = await createPlanningGoal(await readRequestJson(req));
+    return sendJson(res, 201, result.board);
+  }
+  const goalMatch = url.pathname.match(/^\/api\/planning\/goals\/([^/]+)$/);
+  if (req.method === 'PATCH' && goalMatch) {
+    const result = await updatePlanningGoal(decodeURIComponent(goalMatch[1]), await readRequestJson(req));
+    return sendJson(res, 200, result.board);
+  }
+  if (req.method === 'DELETE' && goalMatch) {
+    const result = await deletePlanningGoal(decodeURIComponent(goalMatch[1]));
+    return sendJson(res, 200, result.board);
+  }
   if (req.method === 'GET' && url.pathname === '/api/jobs') {
     return sendJson(res, 200, await loadDashboardJobs());
   }

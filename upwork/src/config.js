@@ -1,5 +1,4 @@
 import { readFile } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
@@ -23,18 +22,16 @@ export const ENDPOINTS = {
  *
  * Resolution order:
  *   1. process.env (already set in the shell)
- *   2. ./upwork-agent/.env            (project-local)
- *   3. ~/.env                         (user home — where the secrets live today)
+ *   2. ~/.personal-agent/.env
+ *
+ * The app-specific file is the only dotenv file read. This keeps credentials
+ * out of the repository and avoids inheriting unrelated values from ~/.env.
  */
-export async function loadEnv() {
-  const candidates = [
-    join(process.cwd(), '.env'),
-    join(homedir(), '.env'),
-  ];
+export const ENV_FILE = join(homedir(), '.personal-agent', '.env');
 
-  for (const path of candidates) {
-    if (!existsSync(path)) continue;
-    const raw = await readFile(path, 'utf8');
+export async function loadEnv({ env = process.env, envFile = ENV_FILE } = {}) {
+  try {
+    const raw = await readFile(envFile, 'utf8');
     for (const line of raw.split('\n')) {
       const trimmed = line.trim();
       if (!trimmed || trimmed.startsWith('#')) continue;
@@ -42,16 +39,18 @@ export async function loadEnv() {
       if (eq === -1) continue;
       const key = trimmed.slice(0, eq).trim();
       const val = trimmed.slice(eq + 1).trim().replace(/^["']|["']$/g, '');
-      if (process.env[key] === undefined) {
-        process.env[key] = val;
+      if (env[key] === undefined) {
+        env[key] = val;
       }
     }
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
   }
   return {
-    clientId: process.env.UPWORK_KEY,
-    clientSecret: process.env.UPWORK_SECRET,
-    redirectUri: process.env.REDIRECT_URI ?? 'http://localhost:3000/callback',
-    port: Number(process.env.PORT ?? 3000),
+    clientId: env.UPWORK_KEY,
+    clientSecret: env.UPWORK_SECRET,
+    redirectUri: env.REDIRECT_URI ?? 'http://localhost:3000/callback',
+    port: Number(env.PORT ?? 3000),
   };
 }
 

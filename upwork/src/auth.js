@@ -27,7 +27,7 @@ async function main() {
   const { clientId, clientSecret, redirectUri, port } = await loadEnv();
 
   if (!clientId || !clientSecret) {
-    console.error('✗ Missing UPWORK_KEY / UPWORK_SECRET. Set them in ~/.env or ./.env');
+    console.error('✗ Missing UPWORK_KEY / UPWORK_SECRET. Set them in ~/.personal-agent/.env');
     process.exit(1);
   }
 
