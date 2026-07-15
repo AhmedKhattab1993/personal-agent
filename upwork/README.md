@@ -12,7 +12,7 @@ app credentials can fetch **job postings**.
 
 ## Setup
 
-Your secrets already live in `~/.env`:
+Your secrets live in `~/.personal-agent.env`:
 
 ```
 UPWORK_KEY=<oauth2 client id>
@@ -38,7 +38,7 @@ to the local server, which exchanges the code and saves tokens to
 `~/.upwork-tokens.json`.
 
 > The redirect URI must match what's registered on the app. Set
-> `REDIRECT_URI` / `PORT` in `~/.env` if you used a different port/URL.
+> `REDIRECT_URI` / `PORT` in `~/.personal-agent.env` if you used a different port/URL.
 
 ### 2. Smoke-test the token
 
@@ -97,7 +97,7 @@ posting details that the current OAuth app can read.
 
 | File | Purpose |
 |------|---------|
-| `src/config.js`     | Endpoints, env loading (reads `~/.env`), token file path |
+| `src/config.js`     | Endpoints, env loading (reads `~/.personal-agent.env`), token file path |
 | `src/auth.js`       | OAuth2 authorization-code flow + local callback server |
 | `src/tokenStore.js` | Save/load/expire-check the access+refresh tokens |
 | `src/client.js`     | GraphQL client with automatic token refresh |

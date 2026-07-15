@@ -23,14 +23,10 @@ export const ENDPOINTS = {
  *
  * Resolution order:
  *   1. process.env (already set in the shell)
- *   2. ./upwork-agent/.env            (project-local)
- *   3. ~/.env                         (user home — where the secrets live today)
+ *   2. ~/.personal-agent.env (project-specific secrets)
  */
 export async function loadEnv() {
-  const candidates = [
-    join(process.cwd(), '.env'),
-    join(homedir(), '.env'),
-  ];
+  const candidates = [join(homedir(), '.personal-agent.env')];
 
   for (const path of candidates) {
     if (!existsSync(path)) continue;
