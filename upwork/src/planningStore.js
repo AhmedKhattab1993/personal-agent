@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { access, mkdir, readFile, rename, stat, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const APP_ROOT = fileURLToPath(new URL('..', import.meta.url));
@@ -50,7 +50,12 @@ function cleanText(value, { required = false, label = 'Value' } = {}) {
 
 function expandDirectory(directory) {
   const value = cleanText(directory, { required: true, label: 'Directory' });
-  return resolve(value === '~' ? homedir() : value.startsWith('~/') ? join(homedir(), value.slice(2)) : value);
+  const expanded = value === '~' ? homedir() : value.startsWith('~/') ? join(homedir(), value.slice(2)) : value;
+  if (!isAbsolute(expanded)) {
+    const suggestion = value.startsWith('home/') ? `/${value}` : `~/${value.replace(/^\.\//, '')}`;
+    throw new Error(`Directory must be an absolute or ~/ path. Did you mean “${suggestion}”?`);
+  }
+  return resolve(expanded);
 }
 
 function persistDirectory(directory) {
@@ -62,7 +67,12 @@ function persistDirectory(directory) {
 
 async function assertDirectory(directory) {
   const normalized = expandDirectory(directory);
-  await access(normalized);
+  try {
+    await access(normalized);
+  } catch (error) {
+    if (error.code === 'ENOENT') throw new Error(`Directory does not exist: ${normalized}`);
+    throw error;
+  }
   const details = await stat(normalized);
   if (!details.isDirectory()) throw new Error('Directory must point to a folder on disk');
   return normalized;

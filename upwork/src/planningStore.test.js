@@ -134,8 +134,16 @@ test('stores home-relative project directories portably', async (context) => {
 test('rejects project paths that are not existing directories', async (context) => {
   const directory = await mkdtemp(join(tmpdir(), 'planning-board-'));
   context.after(() => rm(directory, { recursive: true, force: true }));
+  const missing = join(directory, 'missing');
   await assert.rejects(
-    createPlanningProject({ name: 'Missing', directory: join(directory, 'missing') }, { filePath: join(directory, 'planning.json') }),
-    /ENOENT/,
+    createPlanningProject({ name: 'Missing', directory: missing }, { filePath: join(directory, 'planning.json') }),
+    new RegExp(`Directory does not exist: ${missing}`),
+  );
+});
+
+test('rejects relative project paths with a correction instead of resolving from the server directory', async () => {
+  await assert.rejects(
+    createPlanningProject({ name: 'Missing slash', directory: 'home/ahmed/projects/example' }),
+    /Directory must be an absolute or ~\/ path\. Did you mean “\/home\/ahmed\/projects\/example”\?/,
   );
 });
