@@ -199,19 +199,51 @@ export async function createPlanningGoal(input, options = {}) {
   return { board: await savePlanningBoard(board, options), goal };
 }
 
+function goalsInStatus(goals, status) {
+  return goals
+    .map((goal, index) => ({ goal, index }))
+    .filter(({ goal }) => goal.status === status)
+    .sort((a, b) => {
+      const positionDifference = (Number.isFinite(a.goal.position) ? a.goal.position : 0)
+        - (Number.isFinite(b.goal.position) ? b.goal.position : 0);
+      return positionDifference || a.index - b.index;
+    })
+    .map(({ goal }) => goal);
+}
+
+function normalizeGoalPositions(goals, status) {
+  const positions = new Map(goalsInStatus(goals, status).map((goal, index) => [goal.id, index]));
+  return goals.map((goal) => positions.has(goal.id) ? { ...goal, position: positions.get(goal.id) } : goal);
+}
+
 export async function updatePlanningGoal(goalId, input, options = {}) {
   const board = await loadPlanningBoard(options);
   const index = board.goals.findIndex((goal) => goal.id === goalId);
   if (index < 0) throw new Error('Goal not found');
   const current = board.goals[index];
   const fields = validateGoalInput(input, board, current);
-  board.goals[index] = {
-    ...current,
-    ...fields,
-    position: Number.isFinite(input.position) ? input.position : current.position,
-    updatedAt: new Date().toISOString(),
-  };
-  return { board: await savePlanningBoard(board, options), goal: board.goals[index] };
+  const statusChanged = current.status !== fields.status;
+  const positionChanged = Number.isFinite(input.position);
+  const updated = { ...current, ...fields, updatedAt: new Date().toISOString() };
+  board.goals[index] = updated;
+
+  if (statusChanged || positionChanged) {
+    const targetGoals = goalsInStatus(
+      board.goals.filter((goal) => goal.id !== goalId),
+      fields.status,
+    );
+    const requestedPosition = positionChanged ? Math.trunc(input.position) : targetGoals.length;
+    const targetPosition = Math.max(0, Math.min(targetGoals.length, requestedPosition));
+    targetGoals.splice(targetPosition, 0, updated);
+    const targetPositions = new Map(targetGoals.map((goal, position) => [goal.id, position]));
+    board.goals = board.goals.map((goal) => targetPositions.has(goal.id)
+      ? { ...goal, position: targetPositions.get(goal.id) }
+      : goal);
+    if (statusChanged) board.goals = normalizeGoalPositions(board.goals, current.status);
+  }
+
+  const savedBoard = await savePlanningBoard(board, options);
+  return { board: savedBoard, goal: savedBoard.goals.find((goal) => goal.id === goalId) };
 }
 
 export async function deletePlanningGoal(goalId, options = {}) {

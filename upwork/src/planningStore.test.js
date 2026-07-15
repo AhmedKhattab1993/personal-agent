@@ -147,3 +147,126 @@ test('rejects relative project paths with a correction instead of resolving from
     /Directory must be an absolute or ~\/ path\. Did you mean “\/home\/ahmed\/projects\/example”\?/,
   );
 });
+
+test('reorders a goal upward within the same status', async (context) => {
+  const directory = await mkdtemp(join(tmpdir(), 'planning-board-'));
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  const projectDirectory = join(directory, 'project');
+  const filePath = join(directory, 'planning.json');
+  await mkdir(projectDirectory);
+
+  const { project } = await createPlanningProject({ name: 'P', directory: projectDirectory }, { filePath });
+  const g1 = (await createPlanningGoal({ projectId: project.id, title: 'A' }, { filePath })).goal;
+  const g2 = (await createPlanningGoal({ projectId: project.id, title: 'B' }, { filePath })).goal;
+  const g3 = (await createPlanningGoal({ projectId: project.id, title: 'C' }, { filePath })).goal;
+
+  // All three start at positions 0,1,2 in backlog
+  // Move g3 (position 2) up to position 0
+  const moved = await updatePlanningGoal(g3.id, { position: 0 }, { filePath });
+  const positions = moved.board.goals
+    .filter((g) => g.status === 'backlog')
+    .sort((a, b) => a.position - b.position)
+    .map((g) => ({ id: g.id, pos: g.position }));
+  assert.equal(positions[0].id, g3.id);
+  assert.equal(positions[1].id, g1.id);
+  assert.equal(positions[2].id, g2.id);
+  assert.deepEqual(positions.map((p) => p.pos), [0, 1, 2]);
+});
+
+test('reorders a goal downward within the same status', async (context) => {
+  const directory = await mkdtemp(join(tmpdir(), 'planning-board-'));
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  const projectDirectory = join(directory, 'project');
+  const filePath = join(directory, 'planning.json');
+  await mkdir(projectDirectory);
+
+  const { project } = await createPlanningProject({ name: 'P', directory: projectDirectory }, { filePath });
+  const g1 = (await createPlanningGoal({ projectId: project.id, title: 'A' }, { filePath })).goal;
+  const g2 = (await createPlanningGoal({ projectId: project.id, title: 'B' }, { filePath })).goal;
+  const g3 = (await createPlanningGoal({ projectId: project.id, title: 'C' }, { filePath })).goal;
+
+  // Move g1 (position 0) down to position 2
+  const moved = await updatePlanningGoal(g1.id, { position: 2 }, { filePath });
+  const positions = moved.board.goals
+    .filter((g) => g.status === 'backlog')
+    .sort((a, b) => a.position - b.position)
+    .map((g) => ({ id: g.id, pos: g.position }));
+  assert.equal(positions[0].id, g2.id);
+  assert.equal(positions[1].id, g3.id);
+  assert.equal(positions[2].id, g1.id);
+  assert.deepEqual(positions.map((p) => p.pos), [0, 1, 2]);
+});
+
+test('appends to target status and normalizes source on cross-status move without position', async (context) => {
+  const directory = await mkdtemp(join(tmpdir(), 'planning-board-'));
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  const projectDirectory = join(directory, 'project');
+  const filePath = join(directory, 'planning.json');
+  await mkdir(projectDirectory);
+
+  const { project } = await createPlanningProject({ name: 'P', directory: projectDirectory }, { filePath });
+  const g1 = (await createPlanningGoal({ projectId: project.id, title: 'A', status: 'backlog' }, { filePath })).goal;
+  const g2 = (await createPlanningGoal({ projectId: project.id, title: 'B', status: 'backlog' }, { filePath })).goal;
+  const g3 = (await createPlanningGoal({ projectId: project.id, title: 'C', status: 'planned' }, { filePath })).goal;
+
+  // Move g1 from backlog (0,1) to planned (appended). Should: planned=[g3(0),g1(1)], backlog=[g2(0)]
+  const moved = await updatePlanningGoal(g1.id, { status: 'planned' }, { filePath });
+
+  const planned = moved.board.goals
+    .filter((g) => g.status === 'planned')
+    .sort((a, b) => a.position - b.position);
+  assert.equal(planned.length, 2);
+  assert.equal(planned[0].id, g3.id);
+  assert.equal(planned[1].id, g1.id);
+  assert.deepEqual(planned.map((p) => p.position), [0, 1]);
+
+  const backlog = moved.board.goals
+    .filter((g) => g.status === 'backlog')
+    .sort((a, b) => a.position - b.position);
+  assert.equal(backlog.length, 1);
+  assert.equal(backlog[0].id, g2.id);
+  assert.deepEqual(backlog.map((p) => p.position), [0]);
+});
+
+test('inserts at the requested position when moving across statuses', async (context) => {
+  const directory = await mkdtemp(join(tmpdir(), 'planning-board-'));
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  const projectDirectory = join(directory, 'project');
+  const filePath = join(directory, 'planning.json');
+  await mkdir(projectDirectory);
+
+  const { project } = await createPlanningProject({ name: 'P', directory: projectDirectory }, { filePath });
+  const moving = (await createPlanningGoal({ projectId: project.id, title: 'Moving' }, { filePath })).goal;
+  const first = (await createPlanningGoal({ projectId: project.id, title: 'First', status: 'planned' }, { filePath })).goal;
+  const second = (await createPlanningGoal({ projectId: project.id, title: 'Second', status: 'planned' }, { filePath })).goal;
+
+  const moved = await updatePlanningGoal(moving.id, { status: 'planned', position: 1 }, { filePath });
+  const planned = moved.board.goals
+    .filter((goal) => goal.status === 'planned')
+    .sort((a, b) => a.position - b.position);
+  assert.deepEqual(planned.map((goal) => goal.id), [first.id, moving.id, second.id]);
+  assert.deepEqual(planned.map((goal) => goal.position), [0, 1, 2]);
+});
+
+test('preserves ordering on metadata-only update without position', async (context) => {
+  const directory = await mkdtemp(join(tmpdir(), 'planning-board-'));
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  const projectDirectory = join(directory, 'project');
+  const filePath = join(directory, 'planning.json');
+  await mkdir(projectDirectory);
+
+  const { project } = await createPlanningProject({ name: 'P', directory: projectDirectory }, { filePath });
+  const g1 = (await createPlanningGoal({ projectId: project.id, title: 'A' }, { filePath })).goal;
+  const g2 = (await createPlanningGoal({ projectId: project.id, title: 'B' }, { filePath })).goal;
+  const g3 = (await createPlanningGoal({ projectId: project.id, title: 'C' }, { filePath })).goal;
+
+  // Update title only — positions should remain 0,1,2 and order preserved
+  const moved = await updatePlanningGoal(g2.id, { title: 'B-updated' }, { filePath });
+  const siblings = moved.board.goals
+    .filter((g) => g.status === 'backlog')
+    .sort((a, b) => a.position - b.position)
+    .map((g) => g.id);
+  assert.deepEqual(siblings, [g1.id, g2.id, g3.id]);
+  const goal2 = moved.board.goals.find((g) => g.id === g2.id);
+  assert.equal(goal2.title, 'B-updated');
+});

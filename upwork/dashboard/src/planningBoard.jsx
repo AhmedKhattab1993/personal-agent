@@ -75,6 +75,30 @@ function Field({ label, hint, children }) {
   return <label className="planning-field"><span>{label}</span>{children}{hint && <small>{hint}</small>}</label>;
 }
 
+function goalsInStatus(goals, status) {
+  return goals
+    .map((goal, index) => ({ goal, index }))
+    .filter(({ goal }) => goal.status === status)
+    .sort((a, b) => ((a.goal.position ?? 0) - (b.goal.position ?? 0)) || (a.index - b.index))
+    .map(({ goal }) => goal);
+}
+
+function reorderGoals(goals, goalId, status, position) {
+  const moving = goals.find((goal) => goal.id === goalId);
+  if (!moving) return goals;
+  const sourceStatus = moving.status;
+  const targetGoals = goalsInStatus(goals.filter((goal) => goal.id !== goalId), status);
+  const targetIndex = Math.max(0, Math.min(targetGoals.length, Math.trunc(position)));
+  targetGoals.splice(targetIndex, 0, { ...moving, status });
+
+  const updates = new Map(targetGoals.map((goal, index) => [goal.id, { status, position: index }]));
+  if (sourceStatus !== status) {
+    goalsInStatus(goals.filter((goal) => goal.id !== goalId), sourceStatus)
+      .forEach((goal, index) => updates.set(goal.id, { status: sourceStatus, position: index }));
+  }
+  return goals.map((goal) => updates.has(goal.id) ? { ...goal, ...updates.get(goal.id) } : goal);
+}
+
 export default function PlanningBoard({ navigation }) {
   const [board, setBoard] = useState({ projects: [], goals: [] });
   const [loading, setLoading] = useState(true);
@@ -90,6 +114,7 @@ export default function PlanningBoard({ navigation }) {
   const [editingGoal, setEditingGoal] = useState(null);
   const [draggedProject, setDraggedProject] = useState(null);
   const [draggedGoal, setDraggedGoal] = useState(null);
+  const [goalDropTarget, setGoalDropTarget] = useState(null);
   const [copiedGoal, setCopiedGoal] = useState(null);
   const [assistantMessages, setAssistantMessages] = useState([]);
   const [assistantInput, setAssistantInput] = useState('');
@@ -232,13 +257,28 @@ export default function PlanningBoard({ navigation }) {
     }
   }
 
-  async function moveGoal(goal, status) {
-    if (goal.status === status) return;
+  async function moveGoal(goal, status, position) {
+    const currentOrder = goalsInStatus(board.goals, goal.status);
+    if (goal.status === status && currentOrder.findIndex((item) => item.id === goal.id) === position) return;
     const previous = board;
-    setBoard((current) => ({ ...current, goals: current.goals.map((item) => item.id === goal.id ? { ...item, status } : item) }));
+    setBoard((current) => ({ ...current, goals: reorderGoals(current.goals, goal.id, status, position) }));
     try {
-      setBoard(await api(`/api/planning/goals/${encodeURIComponent(goal.id)}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) }));
+      setBoard(await api(`/api/planning/goals/${encodeURIComponent(goal.id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status, position }),
+      }));
     } catch (moveError) { setBoard(previous); setError(moveError.message); }
+  }
+
+  function goalDropPosition(event, goal, status) {
+    const goals = goalsInStatus(board.goals, status);
+    const targetIndex = goals.findIndex((item) => item.id === goal.id);
+    const sourceIndex = draggedGoal?.status === status ? goals.findIndex((item) => item.id === draggedGoal.id) : -1;
+    const afterTarget = event.clientY >= event.currentTarget.getBoundingClientRect().top + (event.currentTarget.offsetHeight / 2);
+    let position = targetIndex + (afterTarget ? 1 : 0);
+    if (sourceIndex >= 0 && sourceIndex < position) position -= 1;
+    return { position, edge: afterTarget ? 'after' : 'before' };
   }
 
   async function removeGoal(goal) {
@@ -300,13 +340,35 @@ export default function PlanningBoard({ navigation }) {
             {STATES.map((state) => {
               const StateIcon = state.icon;
               const goals = visibleGoals.filter((goal) => goal.status === state.id).sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
-              return <div key={state.id} className={`kanban-column state-${state.id}`} onDragOver={(event) => event.preventDefault()} onDrop={() => { if (draggedGoal) moveGoal(draggedGoal, state.id); setDraggedGoal(null); }}>
+              return <div
+                key={state.id}
+                className={`kanban-column state-${state.id}`}
+                onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  if (draggedGoal) {
+                    const position = goalsInStatus(board.goals.filter((goal) => goal.id !== draggedGoal.id), state.id).length;
+                    moveGoal(draggedGoal, state.id, position);
+                  }
+                  setDraggedGoal(null); setGoalDropTarget(null);
+                }}
+              >
                 <header><span className="state-icon" style={{ '--state-color': state.color }}><StateIcon /></span><strong>{state.label}</strong><b>{counts[state.id]}</b><button onClick={() => openNewGoal(state.id)} aria-label={`Add to ${state.label}`}><Plus /></button></header>
                 <div className="kanban-stack">
                   {goals.map((goal) => {
                     const project = projectMap[goal.projectId];
                     const priority = PRIORITIES.find((item) => item.id === goal.priority) ?? PRIORITIES[0];
-                    return <article key={goal.id} className="goal-card" draggable onDragStart={() => setDraggedGoal(goal)} onDragEnd={() => setDraggedGoal(null)} onClick={() => openGoal(goal)}>
+                    const dropEdge = goalDropTarget?.id === goal.id ? goalDropTarget.edge : null;
+                    return <article
+                      key={goal.id}
+                      className={`goal-card ${draggedGoal?.id === goal.id ? 'dragging' : ''} ${dropEdge ? `drop-${dropEdge}` : ''}`}
+                      draggable
+                      onDragStart={(event) => { setDraggedGoal(goal); event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', goal.id); }}
+                      onDragOver={(event) => { event.preventDefault(); event.stopPropagation(); const target = goalDropPosition(event, goal, state.id); setGoalDropTarget({ id: goal.id, edge: target.edge }); event.dataTransfer.dropEffect = 'move'; }}
+                      onDrop={(event) => { event.preventDefault(); event.stopPropagation(); if (draggedGoal) moveGoal(draggedGoal, state.id, goalDropPosition(event, goal, state.id).position); setDraggedGoal(null); setGoalDropTarget(null); }}
+                      onDragEnd={() => { setDraggedGoal(null); setGoalDropTarget(null); }}
+                      onClick={() => openGoal(goal)}
+                    >
                       <div className="goal-card-top"><GripVertical className="drag-handle" /><span className={`priority-chip priority-${goal.priority}`} title={`Priority: ${priority.label}`}><i />{priority.label}</span><code className="goal-id" title={`Goal ID: ${goal.id}`}>#{goal.id}</code><button onClick={(event) => { event.stopPropagation(); copyBrief(goal); }} title="Copy agent brief">{copiedGoal === goal.id ? <Check /> : <Copy />}</button></div>
                       <h3>{goal.title}</h3>
                       <footer><span className="project-chip" style={{ '--project-color': project.color }}><i>{initials(project.name)}</i>{project.name}</span><time>{relativeDate(goal.updatedAt)}</time></footer>
