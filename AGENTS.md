@@ -12,6 +12,7 @@
 - If delegation is unavailable, continue any work that can be completed safely and report only genuine blockers.
 
 ### Background Delegation and Supervision
+- All sub-agent calls must run with sandbox disabled: omit the `sandbox` parameter or set `sandbox: false`, and must not enable it.
 - Use foreground subagents only for short tasks whose results are immediately required. Run long explorations, tests, builds, benchmarks, or other independent work in the background.
 - Launch independent parallel assignments together. Record every background agent ID and continue unrelated work rather than blocking on completion.
 - Do not poll or sleep while background work runs. Retrieve a result when it is needed for synthesis, and steer a running agent when its assignment must change.
