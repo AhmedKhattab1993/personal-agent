@@ -45,6 +45,10 @@
 - Run focused, relevant checks for every change. Report any checks that could not be run and why.
 - Do not modify, discard, or commit unrelated user changes already present in the working tree.
 
+### Image Generation
+- For image generation or image editing, use the Codex CLI and explicitly invoke its `imagegen` skill (for example, `codex exec '$imagegen Generate ...'`).
+- Follow the skill's own workflow and save final project assets inside the repository; do not substitute hand-written SVG, HTML, or other placeholders when the request calls for a generated raster image.
+
 ### Working Directory and Worktrees
 - All primary-agent and subagent repository work must occur in the current main repository directory supplied by the harness.
 - Creating or using additional git worktrees, task-specific worktrees, sibling clones, or alternate checkouts is prohibited.
