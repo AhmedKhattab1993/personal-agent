@@ -1,10 +1,10 @@
-# Real-Time Pi Agent Dashboard Sync
+# Real-Time Pi Agent and cmux Dashboard Sync
 
 Status: Proposed
 
 ## Goal
 
-Add an **Agents** tab to the personal dashboard that shows Pi agents running on the local machine in near real time.
+Add an **Agents** tab to the personal dashboard that shows Pi agents and their containing cmux windows, workspaces, panes, and surfaces in near real time.
 
 The integration must support every current and future Agent type without requiring type-specific code, including:
 
@@ -17,8 +17,10 @@ The integration must support every current and future Agent type without requiri
 - resumed, steered, aborted, stopped, completed, and failed runs
 - agents that disable extensions or run in an isolated configuration
 - dashboard-launched one-shot, JSON, RPC, or SDK-backed agents
+- open cmux windows, workspaces, panes, and surfaces, including those without an Agent
+- Pi Agents launched outside cmux, grouped as headless or unattached
 
-The first release should be read-only. Remote prompting and agent control can be added later after authentication, authorization, and single-writer behavior are defined.
+The first release should be read-only. It should mirror cmux topology and Agent state, not attempt to reproduce a fully interactive terminal. Remote prompting, terminal input, and workspace control can be added later after authentication, authorization, and single-writer behavior are defined.
 
 ## Current System Facts
 
@@ -65,22 +67,52 @@ The dashboard already has the required application boundaries:
 - the dashboard is reachable over the configured Tailscale hostname
 - `src/piCli.js` already launches some one-shot Pi jobs and can observe their JSON event output
 
-The dashboard server can host the local agent bridge; a separate daemon is not required initially.
+The dashboard server can host the local agent bridge. If the native cmux application and dashboard server run on different machines, a small companion must run beside cmux and publish state outward; the cmux socket must not be exposed over the network.
+
+### cmux runtime
+
+The inspected environment has the cmux remote CLI/daemon rather than the native macOS application:
+
+- `~/.cmux/bin/cmux` reports version `0.64.19`
+- the CLI exposes JSON-capable commands for windows, workspaces, panes, surfaces, focus, terminal screen snapshots, and control
+- the configured remote relay was unavailable during inspection with `failed to read relay auth challenge: EOF`, so live capabilities must be negotiated again while the Mac application is connected
+- the installed CLI help does not advertise an events command, while current upstream cmux documents `events.stream`; implementation must use capability detection and retain a snapshot-polling fallback
+
+There is no released official browser interface that mirrors the native cmux application. Important distinctions:
+
+- `cmux browser` controls local browser surfaces; it is not a remote cmux UI
+- the official iOS/Mobile Connect feature is beta and is not a general web client
+- the official `cmux-tui` React/xterm.js frontend uses a separate headless multiplexer and cannot attach to existing native cmux workspaces
+- native cmux can return screen snapshots, but it does not expose a released byte-exact continuous PTY stream suitable for recreating the full terminal in a browser
+
+The supported path for exact native rendering is remote desktop over Tailscale. The dashboard should instead provide a cmux-like control-plane view and an **Open in cmux** or remote-desktop action.
+
+Official references:
+
+- [cmux API](https://cmux.com/docs/api)
+- [cmux event stream](https://github.com/manaflow-ai/cmux/blob/main/docs/events.md)
+- [cmux-tui web frontend](https://github.com/manaflow-ai/cmux/blob/main/cmux-tui/frontends/web/README.md)
+- [cmux iOS/Mobile Connect](https://cmux.com/docs/ios)
 
 ## Architecture
 
-Use one event schema with three collection paths:
+Use one joined state model with four collection paths:
 
 ```text
-Top-level Pi TUI
-  -> global dashboard-sync extension -----------+
+Native cmux application
+  -> local socket / events -> cmux companion ----+
                                                   |
-Agent-tool subagents                              |
-  -> AgentManager telemetry -> pi.events --------+-> local agent bridge
-                                                  |      -> registry and replay buffer
-Dashboard-launched Pi jobs                        |      -> browser event stream
-  -> JSON/RPC/SDK event forwarding --------------+      -> React Agents tab
+Top-level Pi TUI                                  |
+  -> global dashboard-sync extension ------------+
+                                                  |
+Agent-tool subagents                              +-> local agent bridge
+  -> AgentManager telemetry -> pi.events --------+      -> registry and replay buffer
+                                                  |      -> browser event stream
+Dashboard-launched Pi jobs                        |      -> React Agents/cmux tab
+  -> JSON/RPC/SDK event forwarding --------------+
 ```
+
+cmux is authoritative for window, workspace, pane, surface, and focus state. Pi is authoritative for Agent lifecycle, messages, tools, and usage. The bridge joins the two sources by stable cmux identity captured when a top-level Pi process starts.
 
 ### 1. Top-level Pi collector
 
@@ -132,6 +164,29 @@ Agents launched by the dashboard should publish events directly from their owner
 
 `src/piCli.js` intentionally runs the goal assistant with `--no-extensions`. Keep that isolation and forward its JSON events from the launcher instead of enabling global extensions in that subprocess.
 
+### 4. cmux collector
+
+Run the collector beside the native cmux application whenever possible. It should:
+
+1. negotiate API capabilities and fetch a complete JSON snapshot
+2. subscribe to `events.stream` when supported
+3. track the last cmux event sequence and request replay after reconnecting
+4. re-enumerate the complete hierarchy after a replay gap
+5. fall back to lightweight topology polling when the connected version lacks event streaming
+6. publish sanitized topology events to the dashboard bridge over an outbound authenticated connection
+
+Use stable cmux UUIDs as identifiers. Do not persist positional indexes as identity because indexes can change when workspaces or surfaces are reordered.
+
+The normalized topology is:
+
+```text
+host -> window -> workspace -> pane -> surface -> top-level Agent -> child Agents
+```
+
+A workspace or surface remains visible even when it has no Pi Agent. A Pi process without cmux identity appears under a headless/unattached group. Subagents inherit their top-level parent Agent's cmux placement unless they are launched through a separate terminal runtime.
+
+Screen text from `read-screen` may be offered as an explicitly enabled, bounded preview. It must not be treated as a live terminal transport. Browser interaction with a terminal requires either a future supported PTY stream, a move to a web-native multiplexer, or remote desktop.
+
 ## Identity Model
 
 Do not use a session ID as the sole online-agent identity. A process can switch sessions, a session can be resumed later, and a logical Agent can be invoked more than once.
@@ -140,11 +195,16 @@ Each telemetry envelope should contain the applicable identifiers:
 
 | Field | Purpose |
 |---|---|
-| `source` | `tui`, `pi-subagents`, `json`, `rpc`, or `sdk` |
+| `source` | `cmux`, `tui`, `pi-subagents`, `json`, `rpc`, or `sdk` |
+| `hostId` | Machine running cmux or Pi |
 | `agentId` | Stable logical Agent record ID |
 | `attemptId` | Unique ID for one initial or resumed invocation |
 | `sessionId` | Pi conversation/session ID |
 | `processInstanceId` | Unique process-start identity for top-level Pi |
+| `cmuxWindowId` | Stable native cmux window UUID, when attached |
+| `cmuxWorkspaceId` | Stable native cmux workspace UUID, when attached |
+| `cmuxPaneId` | Stable native cmux pane UUID, when attached |
+| `cmuxSurfaceId` | Stable native cmux surface UUID, when attached |
 | `parentAgentId` | Parent Agent when the run is nested |
 | `parentSessionId` | Parent Pi session |
 | `scheduleId` | Persistent scheduled-job definition, when applicable |
@@ -159,9 +219,17 @@ Every scheduled firing receives a new `agentId` and references its persistent `s
 
 ## Agent State Model
 
-The normalized dashboard state should support:
+The dashboard should preserve both the cmux containment tree and the Agent state machine:
 
 ```text
+host
+└── window
+    └── workspace
+        └── pane
+            └── surface
+                └── top-level Agent
+                    └── child Agents
+
 created -> queued -> running -> completed
                             -> steered
                             -> aborted
@@ -171,6 +239,8 @@ created -> queued -> running -> completed
 
 The dashboard should display at least:
 
+- cmux window, workspace, pane, surface, and focused/selected state
+- cmux title and cwd when available
 - Agent type and description
 - current status and active tool
 - launch mode and parent/child relationship
@@ -187,9 +257,11 @@ The dashboard must not infer terminal completion from a closed browser connectio
 
 ### Producer to bridge
 
-Use one long-lived authenticated connection per top-level Pi runtime. A WebSocket or local Unix socket is preferred over one HTTP request per token.
+Use one long-lived authenticated connection per top-level Pi runtime and one per cmux host companion. A WebSocket or local Unix socket is preferred over one HTTP request per token.
 
 AgentManager events are in-process and should first enter the shared `pi.events` bus. The dashboard-sync extension then sends both top-level and subagent telemetry over its connection.
+
+The cmux companion should connect to the native local socket using cmux's existing authentication, then publish sanitized state outward. If the dashboard is on another machine, the companion initiates an outbound authenticated TLS connection; the native cmux socket and relay credentials never leave the host.
 
 ### Bridge to browser
 
@@ -218,6 +290,8 @@ Exact endpoint names should be selected during implementation and covered by ser
 - The bridge acknowledges the highest contiguous sequence received.
 - Producers reconnect with exponential backoff and resend unacknowledged events.
 - On connection or sequence gaps, send a full current snapshot before continuing deltas.
+- After a cmux replay gap, re-enumerate windows, workspaces, panes, and surfaces and replace the bridge's cmux snapshot atomically.
+- When cmux event streaming is unavailable, poll only topology and focus at a bounded interval; do not poll full terminal screens continuously.
 - Use finalized session entries as a recovery source when a persistent session exists.
 - Persist final state in the bridge for `--no-session` agents that have no JSONL recovery source.
 
@@ -241,8 +315,10 @@ Required protections:
 - authenticate every producer connection
 - authenticate dashboard viewers even when transport is provided by Tailscale
 - validate browser origin and protect any future mutation endpoints against CSRF
-- never expose raw Pi RPC directly to the network
-- redact secrets from tool arguments, output, paths, and provider errors
+- never expose raw Pi RPC or the cmux socket directly to the network
+- treat cmux read-screen, send-key, send-text, focus, create, and close operations as privileged shell/session access
+- keep cmux relay credentials on the cmux host with user-only filesystem permissions
+- redact secrets from terminal previews, tool arguments, output, paths, and provider errors
 - exclude model thinking content by default
 - cap transcript and tool payload sizes
 - keep the first release read-only
@@ -264,37 +340,62 @@ The emitted telemetry contract should remain generic and dashboard-independent s
 
 ## Implementation Phases
 
-### Phase 1: Read-only lifecycle
+### Phase 1: Read-only lifecycle and topology
 
-- define and test the normalized event schema
+- define and test the normalized Agent and cmux event schemas
 - add complete AgentManager lifecycle telemetry, including resume and queue cancellation
 - create the global dashboard-sync extension
+- build the cmux companion with snapshot enumeration and capability detection
 - add the local bridge registry and browser event stream
-- add an Agents tab with cards, hierarchy, and terminal status
+- add an Agents tab with cmux hierarchy, Agent cards, focus state, and terminal status
+- group agents without cmux placement as headless/unattached
 
-### Phase 2: Live transcript and tools
+### Phase 2: Live activity and recovery
 
+- subscribe to cmux events when supported and implement bounded topology polling otherwise
 - stream assistant text with batching
 - show tool execution and bounded output
-- add snapshot/replay recovery
+- add Agent and cmux snapshot/replay recovery
 - add usage, compaction, retry, and scheduled-run details
+- add an **Open in cmux** or remote-desktop action instead of browser terminal emulation
 
 ### Phase 3: Durability and history
 
 - persist finalized attempts and terminal state
 - reconcile persistent Pi sessions after bridge restarts
 - retain final output for in-memory and `--no-session` runs
-- provide filters for Agent type, project, status, and time
+- retain the last known cmux placement when a surface closes during an active run
+- provide filters for Agent type, project, cmux workspace, status, and time
 
 ### Phase 4: Optional control
 
 Only after a security review:
 
+- focus an existing cmux workspace or surface
 - prompt dashboard-owned RPC or SDK agents
 - steer or abort an active Agent
 - resume a completed Agent
 - manage scheduled definitions
 - enforce ownership, authorization, and an audit log
+
+Do not add browser terminal input through `send` or `send-key` as a shortcut around the missing live PTY stream.
+
+## Complexity and Delivery Scope
+
+The read-only design is moderate engineering work rather than a new terminal product. The hard parts are lifecycle completeness, cross-machine deployment, reconnection, security, and joining cmux and Pi identity.
+
+Approximate effort for one experienced developer:
+
+| Scope | Complexity | Approximate effort |
+|---|---|---:|
+| Agent list, status, and hierarchy | Moderate | 3-5 days |
+| cmux windows, workspaces, panes, and surfaces | Moderate | 2-4 additional days |
+| Live transcripts, tools, snapshot, and replay | Medium-high | 4-7 additional days |
+| Remote focus, steering, abort, and scheduling | High | 3-7 additional days plus security review |
+| Exact interactive browser terminal matching native cmux | Very high | Several weeks or months; not recommended |
+| Exact native cmux through remote desktop | Low | 1-2 days of setup |
+
+A robust read-only first release is therefore a roughly one-to-two-week project. Reimplementing cmux in the browser is explicitly outside this design.
 
 ## Acceptance Criteria
 
@@ -305,10 +406,15 @@ The design is complete when all of the following are verified:
 3. Foreground, background, queued, scheduled, and resumed invocations are represented correctly.
 4. Agents with extensions disabled are still visible through AgentManager telemetry.
 5. Top-level interactive Pi sessions appear after extension startup or `/reload`.
-6. Assistant text and parallel tool activity update without polling session files.
-7. A dashboard or network outage does not slow or fail an Agent.
-8. Reconnection restores current state without duplicate terminal records.
-9. `--no-session` agents retain their final state in the dashboard bridge.
-10. The browser cannot access raw Pi RPC or unauthenticated producer endpoints.
-11. Existing goal-assistant isolation through `--no-extensions` remains intact.
-12. Package upgrades cannot silently overwrite the telemetry implementation.
+6. Every open cmux window, workspace, pane, and surface appears even when it contains no Agent.
+7. Pi Agents are joined to stable cmux UUIDs; unattached Agents appear in a headless group.
+8. cmux focus and topology changes synchronize through events or the documented polling fallback.
+9. A cmux replay gap triggers complete re-enumeration without duplicate or orphaned objects.
+10. Assistant text and parallel tool activity update without polling Pi session files.
+11. A dashboard, cmux companion, or network outage does not slow or fail an Agent.
+12. Reconnection restores current state without duplicate terminal records.
+13. `--no-session` agents retain their final state in the dashboard bridge.
+14. The browser cannot access raw Pi RPC, the cmux socket, or unauthenticated producer endpoints.
+15. Existing goal-assistant isolation through `--no-extensions` remains intact.
+16. Package upgrades cannot silently overwrite the telemetry implementation.
+17. The first release does not claim to provide a live interactive native-cmux terminal in the browser.
