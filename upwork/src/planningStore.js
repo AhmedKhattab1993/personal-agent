@@ -10,7 +10,36 @@ export const PLANNING_STATES = ['backlog', 'planned', 'in_progress', 'blocked', 
 export const PLANNING_PRIORITIES = ['no_priority', 'low', 'medium', 'high', 'urgent'];
 
 function emptyBoard() {
-  return { version: 1, projects: [], goals: [], updatedAt: new Date().toISOString() };
+  return { version: 2, nextGoalId: 1, projects: [], goals: [], updatedAt: new Date().toISOString() };
+}
+
+function normalizeGoalIds(goals, storedNextGoalId) {
+  const used = new Set();
+  let nextGoalId = Number.isSafeInteger(storedNextGoalId) && storedNextGoalId > 0 ? storedNextGoalId : 1;
+  const normalized = goals.map((goal) => {
+    const id = typeof goal.id === 'string' ? goal.id : '';
+    const numericId = /^[1-9][0-9a-z]*$/.test(id) ? Number.parseInt(id, 36) : 0;
+    if (Number.isSafeInteger(numericId) && numericId > 0 && numericId.toString(36) === id && !used.has(id)) {
+      used.add(id);
+      nextGoalId = Math.max(nextGoalId, numericId + 1);
+      return goal;
+    }
+    while (used.has(nextGoalId.toString(36))) nextGoalId += 1;
+    const migrated = { ...goal, id: nextGoalId.toString(36) };
+    used.add(migrated.id);
+    nextGoalId += 1;
+    return migrated;
+  });
+  return { goals: normalized, nextGoalId };
+}
+
+function allocateGoalId(board) {
+  const used = new Set(board.goals.map((goal) => goal.id));
+  let nextGoalId = Number.isSafeInteger(board.nextGoalId) && board.nextGoalId > 0 ? board.nextGoalId : 1;
+  while (used.has(nextGoalId.toString(36))) nextGoalId += 1;
+  const id = nextGoalId.toString(36);
+  board.nextGoalId = nextGoalId + 1;
+  return id;
 }
 
 function cleanText(value, { required = false, label = 'Value' } = {}) {
@@ -42,13 +71,16 @@ async function assertDirectory(directory) {
 export async function loadPlanningBoard({ filePath = DEFAULT_PLANNING_FILE } = {}) {
   try {
     const board = JSON.parse(await readFile(filePath, 'utf8'));
+    const normalizedGoals = normalizeGoalIds(Array.isArray(board.goals) ? board.goals : [], board.nextGoalId);
     return {
       ...emptyBoard(),
       ...board,
+      version: 2,
+      nextGoalId: normalizedGoals.nextGoalId,
       projects: Array.isArray(board.projects)
         ? board.projects.map((project) => ({ ...project, directory: expandDirectory(project.directory) }))
         : [],
-      goals: Array.isArray(board.goals) ? board.goals : [],
+      goals: normalizedGoals.goals,
     };
   } catch (error) {
     if (error.code === 'ENOENT') return emptyBoard();
@@ -140,9 +172,9 @@ function validateGoalInput(input, board, current = {}) {
     projectId,
     status,
     priority,
-    title: input.title === undefined ? current.title : cleanText(input.title, { required: true, label: 'Goal title' }),
-    outcome: input.outcome === undefined ? current.outcome : cleanText(input.outcome, { required: true, label: 'Desired outcome' }),
-    completionCriteria: input.completionCriteria === undefined ? current.completionCriteria : cleanText(input.completionCriteria, { required: true, label: 'Completion definition' }),
+    title: cleanText(input.title === undefined ? current.title : input.title, { required: true, label: 'Goal title' }),
+    outcome: input.outcome === undefined ? (current.outcome ?? '') : cleanText(input.outcome),
+    completionCriteria: input.completionCriteria === undefined ? (current.completionCriteria ?? '') : cleanText(input.completionCriteria),
     nonGoals: input.nonGoals === undefined ? (current.nonGoals ?? '') : cleanText(input.nonGoals),
   };
 }
@@ -152,7 +184,7 @@ export async function createPlanningGoal(input, options = {}) {
   const now = new Date().toISOString();
   const fields = validateGoalInput(input, board);
   const siblings = board.goals.filter((goal) => goal.status === fields.status);
-  const goal = { id: randomUUID(), ...fields, position: siblings.length, createdAt: now, updatedAt: now };
+  const goal = { id: allocateGoalId(board), ...fields, position: siblings.length, createdAt: now, updatedAt: now };
   board.goals.push(goal);
   return { board: await savePlanningBoard(board, options), goal };
 }

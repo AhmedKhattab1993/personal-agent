@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -49,6 +49,57 @@ test('persists directory-backed projects and outcome-oriented goals', async (con
   const finalBoard = await loadPlanningBoard({ filePath });
   assert.equal(finalBoard.projects.length, 0);
   assert.equal(finalBoard.goals.length, 0);
+});
+
+test('only requires a title and assigns compact globally unique goal IDs', async (context) => {
+  const directory = await mkdtemp(join(tmpdir(), 'planning-board-'));
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  const filePath = join(directory, 'planning.json');
+  const projects = [];
+  for (const name of ['First', 'Second']) {
+    const projectDirectory = join(directory, name.toLowerCase());
+    await mkdir(projectDirectory);
+    projects.push((await createPlanningProject({ name, directory: projectDirectory }, { filePath })).project);
+  }
+
+  const first = (await createPlanningGoal({ projectId: projects[0].id, title: 'First goal' }, { filePath })).goal;
+  const second = (await createPlanningGoal({ projectId: projects[1].id, title: 'Second goal' }, { filePath })).goal;
+  assert.deepEqual([first.id, second.id], ['1', '2']);
+  assert.equal(first.outcome, '');
+  assert.equal(first.completionCriteria, '');
+
+  await deletePlanningGoal(second.id, { filePath });
+  const third = (await createPlanningGoal({ projectId: projects[1].id, title: 'Third goal' }, { filePath })).goal;
+  assert.equal(third.id, '3');
+  await assert.rejects(createPlanningGoal({ projectId: projects[0].id }, { filePath }), /Goal title is required/);
+});
+
+test('migrates legacy goal UUIDs to stable compact IDs', async (context) => {
+  const directory = await mkdtemp(join(tmpdir(), 'planning-board-'));
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  const filePath = join(directory, 'planning.json');
+  const projectDirectory = join(directory, 'project');
+  await mkdir(projectDirectory);
+  const project = (await createPlanningProject({ name: 'Project', directory: projectDirectory }, { filePath })).project;
+  const board = await loadPlanningBoard({ filePath });
+  board.version = 1;
+  delete board.nextGoalId;
+  board.goals = [{
+    id: '993cf579-30b6-4ee4-abc0-91d730bdb397',
+    projectId: project.id,
+    title: 'Legacy goal',
+    status: 'backlog',
+    priority: 'no_priority',
+    position: 0,
+  }];
+  await writeFile(filePath, JSON.stringify(board), 'utf8');
+
+  const firstLoad = await loadPlanningBoard({ filePath });
+  const secondLoad = await loadPlanningBoard({ filePath });
+  assert.equal(firstLoad.version, 2);
+  assert.equal(firstLoad.goals[0].id, '1');
+  assert.equal(secondLoad.goals[0].id, '1');
+  assert.equal(firstLoad.nextGoalId, 2);
 });
 
 test('persists reordered projects', async (context) => {

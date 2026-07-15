@@ -59,10 +59,10 @@ function agentBrief(goal, project) {
     '',
     `Goal: ${goal.title}`,
     '',
-    `Desired outcome: ${goal.outcome}`,
+    `Desired outcome: ${goal.outcome || 'Not specified.'}`,
     '',
     'Definition of done:',
-    goal.completionCriteria,
+    goal.completionCriteria || 'Not specified.',
     '',
     'Out of scope / ignore:',
     goal.nonGoals || 'Nothing specified.',
@@ -113,7 +113,7 @@ export default function PlanningBoard({ navigation }) {
     if (goal.status === 'canceled') return false;
     if (projectFilter !== 'all' && goal.projectId !== projectFilter) return false;
     if (!query.trim()) return true;
-    return [goal.title, goal.outcome, goal.completionCriteria, goal.nonGoals, projectMap[goal.projectId]?.name].join(' ').toLowerCase().includes(query.trim().toLowerCase());
+    return [goal.id, goal.title, goal.outcome, goal.completionCriteria, goal.nonGoals, projectMap[goal.projectId]?.name].join(' ').toLowerCase().includes(query.trim().toLowerCase());
   }), [board.goals, projectFilter, query, projectMap]);
 
   const counts = useMemo(() => Object.fromEntries(STATES.map((state) => [state.id, visibleGoals.filter((goal) => goal.status === state.id).length])), [visibleGoals]);
@@ -307,7 +307,7 @@ export default function PlanningBoard({ navigation }) {
                     const project = projectMap[goal.projectId];
                     const priority = PRIORITIES.find((item) => item.id === goal.priority) ?? PRIORITIES[0];
                     return <article key={goal.id} className="goal-card" draggable onDragStart={() => setDraggedGoal(goal)} onDragEnd={() => setDraggedGoal(null)} onClick={() => openGoal(goal)}>
-                      <div className="goal-card-top"><GripVertical className="drag-handle" /><span className={`priority-chip priority-${goal.priority}`} title={`Priority: ${priority.label}`}><i />{priority.label}</span><button onClick={(event) => { event.stopPropagation(); copyBrief(goal); }} title="Copy agent brief">{copiedGoal === goal.id ? <Check /> : <Copy />}</button></div>
+                      <div className="goal-card-top"><GripVertical className="drag-handle" /><span className={`priority-chip priority-${goal.priority}`} title={`Priority: ${priority.label}`}><i />{priority.label}</span><code className="goal-id" title={`Goal ID: ${goal.id}`}>#{goal.id}</code><button onClick={(event) => { event.stopPropagation(); copyBrief(goal); }} title="Copy agent brief">{copiedGoal === goal.id ? <Check /> : <Copy />}</button></div>
                       <h3>{goal.title}</h3>
                       <footer><span className="project-chip" style={{ '--project-color': project.color }}><i>{initials(project.name)}</i>{project.name}</span><time>{relativeDate(goal.updatedAt)}</time></footer>
                     </article>;
@@ -340,10 +340,10 @@ export default function PlanningBoard({ navigation }) {
             <DialogHeader className="planning-dialog-header goal-workspace-header"><button type="button" className="dialog-close" onClick={() => setGoalDialog(false)}><X /></button><span className="section-kicker">Outcome contract</span><DialogTitle>{editingGoal ? 'Refine goal with the agent' : 'Define a goal with the agent'}</DialogTitle><p>Shape the outcome directly or work beside the read-only project investigator.</p></DialogHeader>
             <DialogBody className="goal-workspace">
               <section className="planning-form goal-form-panel">
-                <div className="form-grid two"><Field label="Project"><Select required value={goalForm.projectId} onChange={(event) => { setGoalForm({ ...goalForm, projectId: event.target.value }); resetAssistant(event.target.value); }}>{board.projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</Select></Field><Field label="Workflow state"><Select value={goalForm.status} onChange={(event) => setGoalForm({ ...goalForm, status: event.target.value })}>{STATES.map((state) => <option key={state.id} value={state.id}>{state.label}</option>)}<option value="canceled">Canceled</option></Select></Field></div>
+                <div className="form-grid two"><Field label="Project"><Select value={goalForm.projectId} onChange={(event) => { setGoalForm({ ...goalForm, projectId: event.target.value }); resetAssistant(event.target.value); }}>{board.projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</Select></Field><Field label="Workflow state"><Select value={goalForm.status} onChange={(event) => setGoalForm({ ...goalForm, status: event.target.value })}>{STATES.map((state) => <option key={state.id} value={state.id}>{state.label}</option>)}<option value="canceled">Canceled</option></Select></Field></div>
                 <Field label="Goal"><Input autoFocus required value={goalForm.title} onChange={(event) => setGoalForm({ ...goalForm, title: event.target.value })} placeholder="A concise, outcome-oriented title" /></Field>
-                <Field label="Desired outcome" hint="What should be true for the user or system—not the steps to build it."><textarea required value={goalForm.outcome} onChange={(event) => setGoalForm({ ...goalForm, outcome: event.target.value })} placeholder="The dashboard lets me plan work against local projects and hand a complete outcome contract to an agent." /></Field>
-                <Field label="Definition of done" hint="Use observable, verifiable acceptance criteria."><textarea required value={goalForm.completionCriteria} onChange={(event) => setGoalForm({ ...goalForm, completionCriteria: event.target.value })} placeholder={'• The outcome works end to end\n• Relevant tests pass\n• The visible result is verified'} /></Field>
+                <Field label="Desired outcome" hint="Optional. What should be true for the user or system—not the steps to build it."><textarea value={goalForm.outcome} onChange={(event) => setGoalForm({ ...goalForm, outcome: event.target.value })} placeholder="The dashboard lets me plan work against local projects and hand a complete outcome contract to an agent." /></Field>
+                <Field label="Definition of done" hint="Optional. Use observable, verifiable acceptance criteria."><textarea value={goalForm.completionCriteria} onChange={(event) => setGoalForm({ ...goalForm, completionCriteria: event.target.value })} placeholder={'• The outcome works end to end\n• Relevant tests pass\n• The visible result is verified'} /></Field>
                 <Field label="Out of scope / ignore" hint="Protect the goal from scope drift. Avoid prescribing how to implement it."><textarea value={goalForm.nonGoals} onChange={(event) => setGoalForm({ ...goalForm, nonGoals: event.target.value })} placeholder="No unrelated refactors; no publishing or external changes." /></Field>
                 <Field label="Priority"><Select value={goalForm.priority} onChange={(event) => setGoalForm({ ...goalForm, priority: event.target.value })}>{PRIORITIES.map((priority) => <option key={priority.id} value={priority.id}>{priority.label}</option>)}</Select></Field>
                 {editingGoal && <div className="agent-brief-preview"><div><Code2 /><span><strong>Agent-ready brief</strong><small>Directory + outcome + done + scope boundary</small></span></div><Button type="button" variant="outline" size="sm" onClick={() => copyBrief(editingGoal)}><Clipboard /> {copiedGoal === editingGoal.id ? 'Copied' : 'Copy brief'}</Button></div>}
