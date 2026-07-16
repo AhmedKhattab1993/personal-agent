@@ -37,6 +37,12 @@
 - Add complexity only when there is concrete evidence it reduces real duplication, risk, or operational cost.
 - Follow KISS, YAGNI, Occam's Razor, Lean waste reduction, and XP simple design principles.
 
+### Git Workflow
+
+- After making requested code or documentation changes, run the relevant checks, commit the completed work, and push the current branch to its tracked remote unless the user explicitly says not to commit or push.
+- Do not stop after editing or verification. If a push is impossible because the repository has no tracked remote or because authentication or network access fails, report that blocker explicitly.
+- Keep commits focused, use concise and specific commit messages, and exclude unrelated working-tree changes.
+
 ## Repository Guidelines
 
 ### Agent Selection and Reporting
