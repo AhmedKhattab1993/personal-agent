@@ -14,6 +14,7 @@
 
 ### Background Delegation and Supervision
 
+- Use only GLM models for subagents. Do not launch a subagent with any non-GLM model.
 - Use foreground subagents only for short tasks whose results are immediately required. Run long explorations, tests, builds, benchmarks, or other independent work in the background.
 - Launch independent parallel assignments together. Record every background agent ID and continue unrelated work rather than blocking on completion.
 - Do not poll or sleep while background work runs. Supervise through completion notifications and retrieve a result when it is needed for synthesis.
