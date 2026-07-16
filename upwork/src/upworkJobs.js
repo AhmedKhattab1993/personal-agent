@@ -170,26 +170,6 @@ function isAfterDate(job, sinceDate) {
   return new Date(job.publishedDateTime ?? 0) > sinceDate;
 }
 
-async function fetchSearchExpressionJobs(searchExpression, first = POSITIONING_SEARCH_PAGE_SIZE) {
-  const variables = {
-    filter: {
-      searchExpression_eq: searchExpression,
-      pagination_eq: { after: '0', first },
-    },
-    sort: [{ field: 'RECENCY' }],
-  };
-  const data = await graphql(JOB_QUERY, variables);
-  const result = data?.marketplaceJobPostingsSearch;
-  if (!result) {
-    throw new Error(`missing marketplaceJobPostingsSearch result for ${searchExpression}`);
-  }
-  return {
-    searchExpression,
-    totalCount: result.totalCount,
-    jobs: result.edges?.map((edge) => edge.node) ?? [],
-  };
-}
-
 async function fetchRecentSearchExpressionJobs(searchExpression, sinceDate) {
   const jobs = [];
   let after = '0';
@@ -279,40 +259,6 @@ export async function fetchLatestSoftwareJobs(limit = 1000, onPage = null) {
   return {
     jobs: trimmed,
     summary: summarizeJobs(trimmed, totalCount),
-  };
-}
-
-export async function fetchLatestPositioningJobs(limit = 1000, onPage = null) {
-  const software = await fetchLatestSoftwareJobs(limit, onPage);
-  const supplementalResults = [];
-
-  for (const searchExpression of POSITIONING_SEARCH_EXPRESSIONS) {
-    const result = await fetchSearchExpressionJobs(searchExpression);
-    supplementalResults.push(result);
-    onPage?.({
-      searchExpression,
-      batchSize: result.jobs.length,
-      totalFetched: software.jobs.length + supplementalResults.reduce((sum, item) => sum + item.jobs.length, 0),
-      endCursor: null,
-    });
-  }
-
-  const jobs = sortJobsByPublishedDate(dedupeJobs([
-    ...software.jobs,
-    ...supplementalResults.flatMap((result) => result.jobs),
-  ]));
-  return {
-    jobs,
-    summary: {
-      ...summarizeJobs(jobs, software.summary.totalCount),
-      source: 'upwork.graphql.marketplaceJobPostingsSearch+positioningSearches',
-      baseCategoryFetched: software.jobs.length,
-      supplementalSearches: supplementalResults.map((result) => ({
-        searchExpression: result.searchExpression,
-        fetched: result.jobs.length,
-        totalCount: result.totalCount,
-      })),
-    },
   };
 }
 

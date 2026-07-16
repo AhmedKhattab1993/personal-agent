@@ -59,7 +59,3 @@ export async function loadEnv({ env = process.env, envFile = ENV_FILE } = {}) {
  * Stored next to the secrets so it stays out of git.
  */
 export const TOKEN_FILE = join(homedir(), '.upwork-tokens.json');
-
-export function basicAuthHeader(clientId, clientSecret) {
-  return 'Basic ' + Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
-}

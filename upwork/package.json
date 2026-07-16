@@ -9,7 +9,6 @@
   },
   "scripts": {
     "auth": "node src/auth.js",
-    "classify": "node src/classifyJobs.js",
     "dashboard": "node src/dashboardServer.js",
     "dashboard:build": "vite build --config dashboard/vite.config.js",
     "dashboard:reclassify": "node src/reclassifyDashboardJobs.js",
@@ -20,15 +19,10 @@
     "test": "node --test src/*.test.js dashboard/src/*.test.js"
   },
   "dependencies": {
-    "@tailwindcss/vite": "^4.3.2",
     "@vitejs/plugin-react": "^6.0.3",
-    "class-variance-authority": "^0.7.1",
-    "clsx": "^2.1.1",
     "lucide-react": "^1.22.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
-    "tailwind-merge": "^3.6.0",
-    "tailwindcss": "^4.3.2",
     "vite": "^8.1.1"
   }
 }

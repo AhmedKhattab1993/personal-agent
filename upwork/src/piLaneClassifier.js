@@ -100,7 +100,7 @@ async function classifyBatch(items, options) {
   throw lastJsonError;
 }
 
-export function buildPiClassificationItems(items) {
+function buildPiClassificationItems(items) {
   return items.map(({ job, laneInfo }) => ({
     id: String(job.id),
     title: compactText(job.title, 240),
@@ -110,7 +110,7 @@ export function buildPiClassificationItems(items) {
   }));
 }
 
-export function applyPiLaneDecision(laneInfo, decision) {
+function applyPiLaneDecision(laneInfo, decision) {
   if (decision.laneId === 'reject') {
     return {
       ...laneInfo,

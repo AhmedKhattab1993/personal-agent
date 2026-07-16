@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 
 import {
-  Badge, Button, Card, CardContent, Dialog, DialogBody, DialogContent,
+  Badge, Button, Dialog, DialogBody, DialogContent,
   DialogFooter, DialogHeader, DialogTitle, Input, Select,
 } from './components/ui.jsx';
 import {

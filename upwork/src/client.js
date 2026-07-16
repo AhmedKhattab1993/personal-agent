@@ -1,7 +1,6 @@
 import {
   ENDPOINTS,
   loadEnv,
-  basicAuthHeader,
 } from './config.js';
 import {
   loadTokens,

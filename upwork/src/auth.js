@@ -4,7 +4,6 @@ import { randomBytes } from 'node:crypto';
 import {
   ENDPOINTS,
   loadEnv,
-  basicAuthHeader,
 } from './config.js';
 import { saveTokens } from './tokenStore.js';
 

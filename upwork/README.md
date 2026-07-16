@@ -58,8 +58,6 @@ for the `Web, Mobile & Software Dev` category (`531770282580668418`) with the
 GraphQL `RECENCY` sort. Upwork caps each response at 50 jobs, so the 1000-job
 run walks 20 pages and writes JSONL plus a summary file under `data/`.
 
-Use [docs/classification-guide.md](docs/classification-guide.md) when assigning
-semantic trend tags to fetched jobs.
 Use [docs/upwork-ai-agents-profile.md](docs/upwork-ai-agents-profile.md) for
 copy-ready Upwork profile text focused on AI agents and workflow automation.
 
