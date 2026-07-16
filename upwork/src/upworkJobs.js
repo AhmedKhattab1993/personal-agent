@@ -1,9 +1,8 @@
 import { graphql } from './client.js';
 
-export const SOFTWARE_DEV_CATEGORY_ID = '531770282580668418';
+const SOFTWARE_DEV_CATEGORY_ID = '531770282580668418';
 export const SOFTWARE_DEV_CATEGORY_NAME = 'Web, Mobile & Software Dev';
-export const PAGE_SIZE = 50;
-const POSITIONING_SEARCH_PAGE_SIZE = 50;
+const PAGE_SIZE = 50;
 export const POSITIONING_SEARCH_SOURCE = 'upwork.graphql.marketplaceJobPostingsSearch+positioningKeywordSearches.v2';
 const POSITIONING_SEARCH_EXPRESSIONS = [
   'trading',
@@ -28,7 +27,7 @@ const POSITIONING_SEARCH_EXPRESSIONS = [
 ];
 const MAX_POSITIONING_SEARCH_PAGES = 100;
 
-export const JOB_QUERY = /* GraphQL */ `
+const JOB_QUERY = /* GraphQL */ `
   query LatestSoftwareJobs(
     $filter: MarketplaceJobPostingsSearchFilter,
     $sort: [MarketplaceJobPostingSearchSortAttribute]
@@ -185,7 +184,7 @@ async function fetchRecentSearchExpressionJobs(searchExpression, sinceDate) {
     const variables = {
       filter: {
         searchExpression_eq: searchExpression,
-        pagination_eq: { after, first: POSITIONING_SEARCH_PAGE_SIZE },
+        pagination_eq: { after, first: PAGE_SIZE },
       },
       sort: [{ field: 'RECENCY' }],
     };

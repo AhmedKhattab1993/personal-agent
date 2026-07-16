@@ -11,7 +11,6 @@ import { fetchRecentPositioningJobs, POSITIONING_SEARCH_SOURCE } from './upworkJ
 const APP_ROOT = fileURLToPath(new URL('..', import.meta.url));
 const DATA_ROOT = join(APP_ROOT, 'data');
 const CACHE_PATH = join(DATA_ROOT, 'dashboard-lane-jobs.json');
-const SEED_JOBS_PATH = join(DATA_ROOT, 'latest-software-dev-1000.jsonl');
 const DEFAULT_LOOKBACK_HOURS = 72;
 const EXCLUDED_CLIENT_COUNTRIES = new Set([
   'india',
@@ -21,14 +20,6 @@ const EXCLUDED_CLIENT_COUNTRIES = new Set([
   'nigeria',
   'nga',
 ]);
-
-function parseJsonl(content) {
-  return content
-    .trim()
-    .split('\n')
-    .filter(Boolean)
-    .map((line) => JSON.parse(line));
-}
 
 async function readJson(path, fallback) {
   if (!existsSync(path)) return fallback;
@@ -192,25 +183,6 @@ async function classifyRelevantJobs(rawJobs) {
   return adjudicated.filter((item) => item.laneInfo.relevant);
 }
 
-async function seedFromLatestFile() {
-  if (!existsSync(SEED_JOBS_PATH)) {
-    return {
-      jobs: [],
-      summary: summarize([], 'empty'),
-    };
-  }
-  const rawJobs = parseJsonl(await readFile(SEED_JOBS_PATH, 'utf8'));
-  const now = new Date().toISOString();
-  const classified = await classifyRelevantJobs(rawJobs);
-  const jobs = classified
-    .map((item) => compactJob(item.job, item.laneInfo, null, now));
-  const sorted = sortRecords(jobs);
-  return {
-    jobs: sorted,
-    summary: summarize(sorted, 'seed:data/latest-software-dev-1000.jsonl', rawJobs.length),
-  };
-}
-
 function normalizeDashboardState(state) {
   const now = new Date();
   const cutoff = lookbackCutoffDate(now);
@@ -241,9 +213,7 @@ export async function loadDashboardJobs() {
     return normalized;
   }
 
-  const seeded = await seedFromLatestFile();
-  await writeJson(CACHE_PATH, seeded);
-  return seeded;
+  return { jobs: [], summary: summarize([], 'empty') };
 }
 
 export async function refreshDashboardJobs() {

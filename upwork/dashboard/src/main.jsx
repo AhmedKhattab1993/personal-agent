@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
-  AlertCircle, ArrowRight, ArrowUpRight, Bot, BriefcaseBusiness, Check,
+  AlertCircle, ArrowRight, ArrowUpRight, Bot, BriefcaseBusiness,
   ChevronRight, CircleDollarSign, Clipboard, Clock3, DatabaseZap, FileText,
   Columns3, Gauge, LayoutDashboard, MapPin, MessageSquareText, RefreshCcw, Search,
   ShieldCheck, SlidersHorizontal, Sparkles, TrendingUp, Users, X,
@@ -19,9 +19,9 @@ import PlanningBoard from './planningBoard.jsx';
 import './styles.css';
 
 const LANES = [
-  { id: 'trading', label: 'Market Circuit', short: 'Market', icon: TrendingUp, accent: 'cyan', description: 'Trading systems & market intelligence' },
-  { id: 'ai-agents', label: 'Work Circuit', short: 'AI agents', icon: Bot, accent: 'violet', description: 'Agents, RAG & AI products' },
-  { id: 'automation', label: 'Automation', short: 'Automation', icon: DatabaseZap, accent: 'amber', description: 'Systems & workflow operations' },
+  { id: 'trading', label: 'Market Circuit', icon: TrendingUp, accent: 'cyan', description: 'Trading systems & market intelligence' },
+  { id: 'ai-agents', label: 'Work Circuit', icon: Bot, accent: 'violet', description: 'Agents, RAG & AI products' },
+  { id: 'automation', label: 'Automation', icon: DatabaseZap, accent: 'amber', description: 'Systems & workflow operations' },
 ];
 const TIME_WINDOWS = [1, 4, 8, 24, 72];
 

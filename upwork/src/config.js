@@ -27,7 +27,7 @@ export const ENDPOINTS = {
  * The app-specific file is the only dotenv file read. This keeps credentials
  * out of the repository and avoids inheriting unrelated values from ~/.env.
  */
-export const ENV_FILE = join(homedir(), '.personal-agent', '.env');
+const ENV_FILE = join(homedir(), '.personal-agent', '.env');
 
 export async function loadEnv({ env = process.env, envFile = ENV_FILE } = {}) {
   try {
