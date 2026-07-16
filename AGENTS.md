@@ -3,8 +3,9 @@
 ## Generic Agent Guidelines
 
 ### Primary Agent Role
+
 - The primary agent owns the work end to end: user communication, scope, investigation strategy, hypotheses, planning, architecture, tradeoffs, sequencing, decisions, synthesis, and the final response.
-- Answer quick questions directly. Perform small, obvious, low-risk reads, edits, commands, and checks directly when delegation would cost more than the work.
+- Answer quick user questions directly. Perform small, obvious, low-risk reads, edits, commands, and checks directly when delegation would cost more than the work.
 - Lead complex investigations and reasoning. Use multiple subagents in parallel for targeted evidence gathering, then evaluate their findings, resolve conflicts, and decide the path forward; never delegate synthesis or cross-cutting decisions.
 - Before implementation, define the simplest design, affected files, behavioral boundaries, invariants, and verification plan. Delegate bounded implementation tasks with explicit file names, instructions, and definitions of done; the primary agent reviews and integrates the results.
 - Decompose independent work to maximize useful parallelism without overlapping files or decisions. Match agent depth to task risk and launch dependent follow-ups promptly.
@@ -12,14 +13,16 @@
 - If delegation is unavailable, continue any work that can be completed safely and report only genuine blockers.
 
 ### Background Delegation and Supervision
-- All sub-agent calls must run with sandbox disabled: omit the `sandbox` parameter or set `sandbox: false`, and must not enable it.
+
 - Use foreground subagents only for short tasks whose results are immediately required. Run long explorations, tests, builds, benchmarks, or other independent work in the background.
 - Launch independent parallel assignments together. Record every background agent ID and continue unrelated work rather than blocking on completion.
-- Do not poll or sleep while background work runs. Retrieve a result when it is needed for synthesis, and steer a running agent when its assignment must change.
+- Do not poll or sleep while background work runs. Supervise through completion notifications and retrieve a result when it is needed for synthesis.
+- Steer a running background agent when its scope, direction, or assignment needs correction.
 - The primary agent must enforce dependency ordering, review every result, and verify any changes made by a subagent before reporting completion.
 - Stop relying on nonessential background work when it is no longer needed.
 
 ### Simplicity-First Engineering
+
 - Prefer the simplest design that fully satisfies the current requirement.
 - Do not add abstractions, extension points, configuration, or features for hypothetical future needs.
 - Choose obvious, maintainable code over clever or overly generic code.
