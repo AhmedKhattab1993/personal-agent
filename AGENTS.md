@@ -2,6 +2,11 @@
 
 ## Generic Agent Guidelines
 
+### Applicability
+
+- These guidelines govern project development and maintenance work, including changes to code, tests, configuration, tooling, and technical documentation.
+- If a repository supports content generation, these guidelines do not govern the content-generation activity itself. Follow the repository-specific content-generation skills and workflow instructions instead.
+
 ### Primary Agent Role
 
 - The primary agent owns the work end to end: user communication, scope, investigation strategy, hypotheses, planning, architecture, tradeoffs, sequencing, decisions, synthesis, and the final response.
