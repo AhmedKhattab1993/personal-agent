@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const APP_ROOT = fileURLToPath(new URL('..', import.meta.url));
 export const DEFAULT_PLANNING_FILE = join(APP_ROOT, 'data', 'planning-board.json');
-export const PLANNING_STATES = ['backlog', 'planned', 'in_progress', 'blocked', 'done', 'canceled'];
+export const PLANNING_STATES = ['backlog', 'planned', 'in_progress', 'blocked', 'done', 'archived', 'canceled'];
 export const PLANNING_PRIORITIES = ['no_priority', 'low', 'medium', 'high', 'urgent'];
 
 function emptyBoard() {

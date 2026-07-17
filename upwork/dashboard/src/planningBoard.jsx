@@ -135,7 +135,7 @@ export default function PlanningBoard({ navigation }) {
 
   const projectMap = useMemo(() => Object.fromEntries(board.projects.map((project) => [project.id, project])), [board.projects]);
   const visibleGoals = useMemo(() => board.goals.filter((goal) => {
-    if (goal.status === 'canceled') return false;
+    if (['archived', 'canceled'].includes(goal.status)) return false;
     if (projectFilter !== 'all' && goal.projectId !== projectFilter) return false;
     if (!query.trim()) return true;
     return [goal.id, goal.title, goal.outcome, goal.completionCriteria, goal.nonGoals, projectMap[goal.projectId]?.name].join(' ').toLowerCase().includes(query.trim().toLowerCase());
@@ -326,7 +326,7 @@ export default function PlanningBoard({ navigation }) {
               onDragEnd={() => setDraggedProject(null)}
               onClick={() => setProjectFilter(project.id)}
               title="Drag to reorder project"
-            ><GripVertical className="project-drag-handle" /><span className="project-avatar" style={{ '--project-color': project.color }}>{initials(project.name)}</span><span><strong>{project.name}</strong><small>{board.goals.filter((goal) => goal.projectId === project.id && !['done', 'canceled'].includes(goal.status)).length} open goals</small></span></button>)}
+            ><GripVertical className="project-drag-handle" /><span className="project-avatar" style={{ '--project-color': project.color }}>{initials(project.name)}</span><span><strong>{project.name}</strong><small>{board.goals.filter((goal) => goal.projectId === project.id && !['done', 'archived', 'canceled'].includes(goal.status)).length} open goals</small></span></button>)}
             <button className="add-project" onClick={() => openProject()}><Plus /> Link project</button>
             {projectFilter !== 'all' && projectMap[projectFilter] && <button className="edit-project" onClick={() => openProject(projectMap[projectFilter])}><Pencil /> Project settings</button>}
           </div>
@@ -369,7 +369,7 @@ export default function PlanningBoard({ navigation }) {
                       onDragEnd={() => { setDraggedGoal(null); setGoalDropTarget(null); }}
                       onClick={() => openGoal(goal)}
                     >
-                      <div className="goal-card-top"><GripVertical className="drag-handle" /><span className={`priority-chip priority-${goal.priority}`} title={`Priority: ${priority.label}`}><i />{priority.label}</span><code className="goal-id" title={`Goal ID: ${goal.id}`}>#{goal.id}</code><button onClick={(event) => { event.stopPropagation(); copyBrief(goal); }} title="Copy agent brief">{copiedGoal === goal.id ? <Check /> : <Copy />}</button></div>
+                      <div className="goal-card-top"><GripVertical className="drag-handle" /><span className={`priority-chip priority-${goal.priority}`} title={`Priority: ${priority.label}`}><i />{priority.label}</span><code className="goal-id" title={`Goal ID: ${goal.id}`}>#{goal.id}</code><button onClick={(event) => { event.stopPropagation(); copyBrief(goal); }} title="Copy agent brief" aria-label={`Copy agent brief for ${goal.title}`}>{copiedGoal === goal.id ? <Check /> : <Copy />}</button><button onClick={(event) => { event.stopPropagation(); moveGoal(goal, 'archived', 0); }} title="Archive goal" aria-label={`Archive ${goal.title}`}><Archive /></button></div>
                       <h3>{goal.title}</h3>
                       <footer><span className="project-chip" style={{ '--project-color': project.color }}><i>{initials(project.name)}</i>{project.name}</span><time>{relativeDate(goal.updatedAt)}</time></footer>
                     </article>;

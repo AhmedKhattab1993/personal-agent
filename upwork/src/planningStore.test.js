@@ -44,6 +44,9 @@ test('persists directory-backed projects and outcome-oriented goals', async (con
   assert.equal(moved.goal.status, 'in_progress');
   assert.equal(moved.goal.completionCriteria, 'The behavior works end to end and its tests pass.');
 
+  const archived = await updatePlanningGoal(createdGoal.goal.id, { status: 'archived' }, { filePath });
+  assert.equal(archived.goal.status, 'archived');
+
   await deletePlanningGoal(createdGoal.goal.id, { filePath });
   await deletePlanningProject(project.id, { filePath });
   const finalBoard = await loadPlanningBoard({ filePath });
