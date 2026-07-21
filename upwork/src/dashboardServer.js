@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'node:crypto';
 import { createServer as createHttpServer } from 'node:http';
 import { execFile } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
@@ -50,12 +51,45 @@ const NO_CACHE_HEADERS = {
   Expires: '0',
 };
 
-function sendJson(res, status, value) {
+const DASHBOARD_ACTIONS = [
+  { id: 'dashboard.status', method: 'GET', path: '/api', description: 'Check dashboard status and discover actions.' },
+  { id: 'dashboard.read', method: 'GET', path: '/api/planning', description: 'List dashboard projects and goals.' },
+  { id: 'dashboard.project.create', method: 'POST', path: '/api/planning/projects', description: 'Create a dashboard project.' },
+  { id: 'dashboard.project.update', method: 'PATCH', path: '/api/planning/projects/{projectId}', description: 'Update a dashboard project.' },
+  { id: 'dashboard.project.delete', method: 'DELETE', path: '/api/planning/projects/{projectId}', description: 'Delete a dashboard project.' },
+  { id: 'dashboard.goal.create', method: 'POST', path: '/api/planning/goals', description: 'Create a dashboard goal.' },
+  { id: 'dashboard.goal.update', method: 'PATCH', path: '/api/planning/goals/{goalId}', description: 'Update or move a dashboard goal.' },
+  { id: 'dashboard.goal.delete', method: 'DELETE', path: '/api/planning/goals/{goalId}', description: 'Delete a dashboard goal.' },
+  { id: 'upwork.jobs.list', method: 'GET', path: '/api/jobs', description: 'List cached Upwork jobs.' },
+  { id: 'upwork.jobs.refresh', method: 'POST', path: '/api/jobs/refresh', description: 'Refresh and return Upwork jobs.' },
+];
+
+function sendJson(res, status, value, headers = {}) {
   res.writeHead(status, {
     'Content-Type': 'application/json; charset=utf-8',
     ...NO_CACHE_HEADERS,
+    ...headers,
   });
   res.end(JSON.stringify(value));
+}
+
+function requireDashboardAuth(req, res, secret) {
+  const match = typeof req.headers.authorization === 'string'
+    ? req.headers.authorization.match(/^Basic (.+)$/i)
+    : null;
+  const credentials = match ? Buffer.from(match[1], 'base64').toString('utf8') : '';
+  const separator = credentials.indexOf(':');
+  const supplied = Buffer.from(separator === -1 ? '' : credentials.slice(separator + 1));
+  const expected = Buffer.from(secret);
+  const valid = credentials.slice(0, separator) === 'agent'
+    && supplied.length === expected.length
+    && timingSafeEqual(supplied, expected);
+  if (valid) return true;
+
+  sendJson(res, 401, { error: 'Authentication required' }, {
+    'WWW-Authenticate': 'Basic realm="personal-agent", charset="UTF-8"',
+  });
+  return false;
 }
 
 function sendError(res, error) {
@@ -73,6 +107,14 @@ async function readRequestJson(req) {
 
 async function handleApi(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
+  if (req.method === 'GET' && url.pathname === '/api') {
+    return sendJson(res, 200, {
+      service: 'personal-agent-dashboard',
+      status: 'ok',
+      authentication: { type: 'http-basic', username: 'agent' },
+      actions: DASHBOARD_ACTIONS,
+    });
+  }
   if (req.method === 'GET' && url.pathname === '/api/planning') {
     return sendJson(res, 200, await loadPlanningBoard());
   }
@@ -169,9 +211,16 @@ async function serveStatic(req, res) {
   res.end(payload);
 }
 
-async function createAppServer() {
+export async function createAppServer({
+  dashboardSecret = process.env.DASHBOARD_SECRET,
+  development = !IS_PRODUCTION,
+} = {}) {
+  if (!dashboardSecret) {
+    throw new Error('Missing DASHBOARD_SECRET. Set it in ~/.personal-agent/.env');
+  }
+
   let vite = null;
-  if (!IS_PRODUCTION) {
+  if (development) {
     const { createServer } = await import('vite');
     vite = await createServer({
       root: DASHBOARD_ROOT,
@@ -186,8 +235,9 @@ async function createAppServer() {
 
   return createHttpServer(async (req, res) => {
     try {
+      if (!requireDashboardAuth(req, res, dashboardSecret)) return;
       const url = new URL(req.url, `http://${req.headers.host}`);
-      if (url.pathname.startsWith('/api/')) {
+      if (url.pathname === '/api' || url.pathname.startsWith('/api/')) {
         await handleApi(req, res);
         return;
       }

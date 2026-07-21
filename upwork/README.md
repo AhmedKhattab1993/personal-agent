@@ -17,6 +17,7 @@ Create the repository-specific credential file at `~/.personal-agent/.env`:
 ```
 UPWORK_KEY=<oauth2 client id>
 UPWORK_SECRET=<oauth2 client secret>
+DASHBOARD_SECRET=<long random value from `openssl rand -hex 32`>
 ```
 
 Install dependencies before running the dashboard:
@@ -67,9 +68,11 @@ copy-ready Upwork profile text focused on AI agents and workflow automation.
 npm run dashboard
 ```
 
-Open <http://studio.tailcc4c77.ts.net:5173>. The personal dashboard binds to all
-local interfaces by default so it is reachable over Tailscale. Its **Upwork**
-tab shows only jobs that match the three lanes in [docs/positioning-plan.md](docs/positioning-plan.md):
+Open <http://studio.tailcc4c77.ts.net:5173> and sign in with username `agent`
+and `DASHBOARD_SECRET` as the password. The server fails closed when that secret
+is missing. The personal dashboard binds to all local interfaces by default so
+it is reachable over Tailscale. Its **Upwork** tab shows only jobs that match the
+three lanes in [docs/positioning-plan.md](docs/positioning-plan.md):
 Market Circuit, Work Circuit, and Automation.
 
 The server refreshes automatically every hour. The **Refresh** button uses the
@@ -94,6 +97,19 @@ investigate repository evidence, discuss the goal, and directly fill validated
 goal fields as the conversation becomes clearer. Optional model, thinking, and
 timeout overrides are `PI_GOAL_ASSISTANT_MODEL`,
 `PI_GOAL_ASSISTANT_THINKING`, and `PI_GOAL_ASSISTANT_TIMEOUT_MS`.
+
+Agents use the same HTTP Basic authentication as the browser. `GET /api` returns
+the machine-readable action list for dashboard projects/goals, cached Upwork
+jobs, and Upwork refresh. For example, after exporting `DASHBOARD_SECRET`:
+
+```sh
+curl --user "agent:$DASHBOARD_SECRET" http://studio.tailcc4c77.ts.net:5173/api
+curl --user "agent:$DASHBOARD_SECRET" http://studio.tailcc4c77.ts.net:5173/api/jobs
+curl --user "agent:$DASHBOARD_SECRET" -X POST http://studio.tailcc4c77.ts.net:5173/api/jobs/refresh
+```
+
+Keep the HTTP server limited to localhost or the encrypted Tailscale network;
+HTTP Basic credentials are not safe over an untrusted plaintext network.
 
 ### 5. Export proposal history
 
