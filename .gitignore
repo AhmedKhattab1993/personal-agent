@@ -9,13 +9,13 @@ tokens.json
 node_modules/
 npm-debug.log*
 dashboard/dist/
-upwork/dashboard/dist/
+server/web/dist/
 
 # generated data
 /data/
-upwork/data/*
+server/data/*
 # The planning board is durable user-authored state and is versioned.
-!upwork/data/planning-board.json
+!server/data/planning-board.json
 
 # misc
 .DS_Store

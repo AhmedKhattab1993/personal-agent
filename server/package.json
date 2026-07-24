@@ -1,0 +1,28 @@
+{
+  "name": "personal-agent-server",
+  "version": "0.1.0",
+  "description": "Personal Agent server with planning and Upwork features",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=20.19"
+  },
+  "scripts": {
+    "server": "node src/server.js",
+    "test": "node --test src/*.test.js src/planning/*.test.js src/upwork/*.test.js web/src/*.test.js",
+    "upwork:auth": "node src/upwork/auth.js",
+    "upwork:jobs": "node src/upwork/fetchJobs.js 1000",
+    "upwork:jobs:sample": "node src/upwork/fetchJobs.js 10",
+    "upwork:me": "node src/upwork/me.js",
+    "upwork:proposals": "node src/upwork/fetchProposalHistory.js",
+    "upwork:reclassify": "node src/upwork/reclassifyJobs.js",
+    "web:build": "vite build --config web/vite.config.js"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "^6.0.3",
+    "lucide-react": "^1.22.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "vite": "^8.1.1"
+  }
+}

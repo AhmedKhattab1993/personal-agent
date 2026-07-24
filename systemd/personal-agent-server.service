@@ -1,0 +1,21 @@
+[Unit]
+Description=Personal Agent server
+After=network-online.target personal-agent-web-build.service
+Wants=network-online.target personal-agent-web-build.service
+
+[Service]
+Type=simple
+WorkingDirectory=/home/ahmed/projects/personal-agent/server
+EnvironmentFile=/home/ahmed/.personal-agent/.env
+Environment=NODE_ENV=production
+Environment=SERVER_HOST=0.0.0.0
+Environment=SERVER_PUBLIC_HOST=vm.tailcc4c77.ts.net
+Environment=PATH=/home/ahmed/.local/share/pi-node/current/bin:/usr/local/bin:/usr/bin:/bin
+Environment=PI_NODE_PATH=/home/ahmed/.local/share/pi-node/current/bin/node
+Environment=PI_CLI_PATH=/home/ahmed/.local/share/pi-node/current/lib/node_modules/@earendil-works/pi-coding-agent/dist/cli.js
+ExecStart=/home/ahmed/.local/share/pi-node/current/bin/node --watch-path=src src/server.js
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=default.target
