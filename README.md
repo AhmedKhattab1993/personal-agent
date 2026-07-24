@@ -6,7 +6,8 @@ and adding future agent capabilities.
 Personal Agent manages all repositories in the `projects/` folder. Users may
 ask questions about those projects or plan work across them, and Personal Agent
 should access the relevant project repository whenever repository context is
-needed.
+needed. When a user asks Personal Agent to perform an operation supported by
+the server, Personal Agent should use the authenticated server API.
 
 ## Managed projects
 
