@@ -3,6 +3,11 @@
 Personal automation workspace for planning work, operating Upwork workflows,
 and adding future agent capabilities.
 
+Personal Agent manages all repositories in the `projects/` folder. Users may
+ask questions about those projects or plan work across them, and Personal Agent
+should access the relevant project repository whenever repository context is
+needed.
+
 ## Naming convention
 
 Names describe scope:
