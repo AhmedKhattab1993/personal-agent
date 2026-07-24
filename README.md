@@ -4,10 +4,9 @@ Personal automation workspace for planning work, operating Upwork workflows,
 and adding future agent capabilities.
 
 Personal Agent manages all repositories in the `projects/` folder. Users may
-ask questions about those projects or plan work across them, and Personal Agent
-should access the relevant project repository whenever repository context is
-needed. When a user asks Personal Agent to perform an operation supported by
-the server, Personal Agent should use the authenticated server API.
+ask questions about those projects, request work in them, or plan work across
+them. Project work is routed to a Codex task scoped to the relevant repository.
+Operations supported by the Personal Agent server use its authenticated API.
 
 ## Managed projects
 
@@ -16,9 +15,13 @@ All managed repositories live under `~/projects/`:
 | Project | Path | Description |
 |---------|------|-------------|
 | Daniel-HumbleBot | `~/projects/Daniel-HumbleBot` | HumbleBot/Nexora algorithmic-trading platform with screening, backtesting, optimization, Lean execution, and a web application. |
+| Galata Beans | `~/projects/galata-beans` | Project workspace. |
 | Halla We Tasa | `~/projects/halla-we-tasa` | Arabic short-video production runtime with creative contracts, narration, HyperFrames motion design, validation, delivery, and social publishing. |
+| Maarood | `~/projects/maarood` | Project workspace. |
 | Market Circuit | `~/projects/market-circuit` | Brand workspace for market intelligence, trading research, educational content, workflow documentation, and visual assets. |
 | Personal Agent | `~/projects/personal-agent` | Central planning and automation application with repository-aware goals, an authenticated web interface, and Upwork workflows. |
+| Qayem | `~/projects/qayem` | Project workspace. |
+| Sizzle Whisper | `~/projects/sizzle-whisper` | Project workspace. |
 | The Ultimate Core | `~/projects/theultimate-core` | Quantitative-trading research and execution runtime with causal features, XGBoost training, Rust scoring, Nautilus execution, and promotion evidence. |
 | Work Circuit | `~/projects/work-circuit` | Brand workspace for AI jobs, products, agents, LLM workflows, automation, video work, and visual assets. |
 
@@ -48,9 +51,23 @@ namespace. Do not use `dashboard` as a synonym for the whole server.
 See [`server/README.md`](server/README.md) for setup, server operation, and
 feature-specific commands.
 
-Market Circuit and Work Circuit are maintained in separate sibling repositories. Their positioning lanes and references remain part of the Upwork feature.
+All managed projects except Personal Agent are maintained in sibling
+repositories. Market Circuit and Work Circuit positioning lanes and references
+remain part of the Upwork feature.
 
 ## Agent Instructions
+
+### Project Task Routing
+
+- When a user asks for work in a managed project, create a new Codex task rooted
+  in that project's directory and hand the request to it. Do not perform the
+  project work directly from the Personal Agent task.
+- Keep the original task as the coordinator when it needs to relay context,
+  follow progress, or report the project task's result.
+- For dashboard goal planning, use the authenticated Personal Agent API. When
+  creating or editing a goal requires repository context or other missing
+  information, a project-scoped Codex task may inspect the relevant repository
+  and return that context before the goal is created or updated.
 
 ### Application Structure
 
