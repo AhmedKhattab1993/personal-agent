@@ -20,7 +20,8 @@
 ### Repository Orientation
 
 - Read the root `README.md`, when present, before making changes.
-- Follow any repository-specific instructions found in `AGENTS.md`, `CONTRIBUTING.md`, or relevant package documentation.
+- Treat the root README's `## Agent Instructions` section as the mandatory repository-specific operating rules.
+- Follow any additional instructions found in `CONTRIBUTING.md` or relevant package documentation.
 - Update `README.md` only for high-level changes to the project structure, public contracts, architecture, or workflow expectations.
 - Do not update `README.md` for routine implementation details, small refactors, or bug fixes.
 
@@ -33,35 +34,47 @@
 
 ### Git Workflow
 
-- After completing requested code or documentation changes, run the relevant checks, commit the completed work, and push the task branch to its tracked remote unless the user explicitly says not to.
+- After completing requested code or documentation changes, run the relevant checks, commit the completed work, and push the implementation branch to its configured remote unless the user explicitly says not to.
 - If committing or pushing is impossible because of repository configuration, authentication, network access, or branch protections, report the blocker explicitly.
 - Keep commits focused and use concise, specific commit messages.
 - Exclude unrelated working-tree changes from commits.
 
-#### Worktrees and Branches
+#### Default Checkout and Optional Worktrees
 
-- Keep the primary repository checkout on `main`, or the repository's default branch when it does not use `main`.
-- Use the primary checkout for discussion, investigation, and other read-only work. Do not implement code or technical-documentation changes directly in it.
-- Before modifying files, determine whether the current task is already running in an isolated worktree.
-- If the task is already in a worktree, continue using that worktree. Do not create another worktree or fork merely because implementation begins or discussion continues.
-- When implementation is requested from a task running in the primary checkout:
-  1. Fork the current task into a new Codex-managed worktree based on the default branch.
-  2. Send the fork a complete implementation prompt containing the user's request, agreed requirements, relevant decisions, required verification, and any explicitly requested Codex goal objective and token budget.
-  3. If the user explicitly requested a Codex goal, instruct the fork to create it as its first action and confirm creation before implementation begins.
-  4. Instruct the fork to begin implementation immediately after any required goal setup, without waiting for the user to repeat or confirm the request.
-  5. Continue all implementation and goal tracking in the fork. The original task must not create, update, mirror, complete, or block the goal, and it must not modify project files.
-- In the worktree, create a task-specific `codex/` branch before modifying files. If the worktree already has the correct task branch, reuse it.
-- Use one worktree and one branch per independent task. Create another worktree only when the work is genuinely separate or must proceed independently.
-- Keep unrelated local changes in the primary checkout out of the task worktree, branch, and commits.
-- Run checks, commit, and push the task branch from the task worktree. Do not switch the primary checkout away from its default branch.
+- By default, perform implementation directly in the repository's primary checkout on its default branch. Do not create or switch branches, create worktrees, or fork the task unless the user explicitly requests worktree use.
+- Task complexity, duration, or potential parallelism does not by itself authorize worktrees.
+- When the user explicitly requests a worktree or worktrees, analyze the requested work and use the smallest useful number:
+  - Use one worktree for one cohesive implementation or changes that overlap substantially.
+  - Use multiple worktrees only for genuinely independent workstreams that can be implemented, verified, committed, and integrated separately.
+  - Do not split tightly coupled work merely to create parallel activity.
+- If worktrees were not authorized and the primary checkout cannot be used safely, report the exact conflict and ask for direction rather than creating a branch or worktree automatically.
+- When worktrees are explicitly authorized:
+  1. Continue in an existing correct worktree when one already owns the task; do not create another merely because implementation begins or discussion continues.
+  2. Define the independent workstreams and their integration order before creating multiple worktrees.
+  3. Move each implementation workstream into its own Codex-managed worktree task based on the default branch.
+  4. Send each worktree task a complete prompt containing its scope, agreed requirements, relevant decisions, required verification, and any explicitly requested Codex goal objective and token budget.
+  5. Create or reuse one task-specific `codex/` branch in each worktree before modifying files.
+  6. Keep implementation, verification, commits, and pushes in the owning worktree task. The original task coordinates and must not modify project files.
 
-#### Goal Ownership During Worktree Handoffs
+#### Direct Work on the Default Branch
 
-- Codex goals are task-local state and do not transfer automatically between tasks.
-- When implementation begins in a primary checkout and the user explicitly requests a Codex goal, the original task must not call `create_goal`. It must fork first and pass the exact goal objective and any explicitly requested token budget to the fork.
-- The fork creates the goal as its first action before implementation. The original task waits for confirmation before treating the handoff as complete.
-- Only the worktree task may update, complete, or block the goal. The original task must not create a duplicate or mirrored goal.
-- If the task is already in the correct isolated worktree, create the goal there and do not fork again.
+- Confirm that the primary checkout is already on the repository's default branch. If it is not, report the mismatch rather than switching branches automatically.
+- Inspect the working tree before making changes.
+- Preserve and exclude unrelated user changes.
+- If unrelated changes overlap files required by the task, stop and ask for direction.
+- Stage only task-related files.
+- Never force-push, discard user changes, or rewrite existing commits.
+- Commit and push the default branch after verification unless the user explicitly says not to.
+- If the local branch is behind, diverged, or rejected by branch protection, report the condition instead of reconciling it destructively.
+
+#### Codex Goal Ownership
+
+- Codex goals are task-local state and belong to the task performing the implementation.
+- Under the default direct-checkout workflow, create and manage an explicitly requested Codex goal in the current task.
+- When worktrees are explicitly requested and implementation moves to a worktree task, the original task must not call `create_goal`. Pass the exact objective and any explicitly requested token budget to the owning worktree task, which creates the goal as its first action before implementation.
+- The original task waits for goal-creation confirmation before treating the handoff as complete. Only the owning worktree task may update, complete, or block that goal.
+- With multiple worktree tasks, do not duplicate one goal across tasks. Create separate goals only when the user explicitly requests them; ask for direction when ownership of a requested goal is ambiguous.
+- Do not create duplicate or mirrored goals in coordinating tasks.
 - These rules apply to Codex task goals, not application, domain, or planning goals stored by a repository.
 
 ## Codex-Specific Tooling
@@ -71,16 +84,3 @@
 - For image generation or editing, use the Codex CLI and explicitly invoke its `imagegen` skill, for example: `codex exec '$imagegen Generate ...'`.
 - Follow the skill's workflow and save final project assets inside the repository.
 - Do not substitute handwritten SVG, HTML, or other placeholders when the request requires a generated raster image.
-
-## Repository-Specific Guidelines
-
-### Application Structure
-
-- The runnable application lives under `server/`.
-- Keep feature-specific code, API routes, commands, and documentation in the `planning` or `upwork` namespace. Keep shared runtime code directly under `server/`.
-- Treat `server/data/planning-board.json` as user-owned planning state. Modify it only when the requested work changes planning data.
-
-### Verification
-
-- Run `npm test` from `server/` after server, planning, Upwork, or shared frontend logic changes.
-- Run `npm run web:build` from `server/` after frontend or production-build changes.
