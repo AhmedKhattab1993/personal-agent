@@ -33,10 +33,26 @@
 
 ### Git Workflow
 
-- After completing requested code or documentation changes, run the relevant checks, commit the completed work, and push the current branch to its tracked remote unless the user explicitly says not to.
+- After completing requested code or documentation changes, run the relevant checks, commit the completed work, and push the task branch to its tracked remote unless the user explicitly says not to.
 - If committing or pushing is impossible because of repository configuration, authentication, network access, or branch protections, report the blocker explicitly.
 - Keep commits focused and use concise, specific commit messages.
 - Exclude unrelated working-tree changes from commits.
+
+#### Worktrees and Branches
+
+- Keep the primary repository checkout on `main`, or the repository's default branch when it does not use `main`.
+- Use the primary checkout for discussion, investigation, and other read-only work. Do not implement code or technical-documentation changes directly in it.
+- Before modifying files, determine whether the current task is already running in an isolated worktree.
+- If the task is already in a worktree, continue using that worktree. Do not create another worktree or fork merely because implementation begins or discussion continues.
+- When implementation is requested from a task running in the primary checkout:
+  1. Fork the current task into a new Codex-managed worktree based on the default branch.
+  2. Send the fork a complete implementation prompt containing the user's request, the agreed requirements, relevant decisions from the discussion, and the required verification.
+  3. Instruct the fork to begin implementation immediately without waiting for the user to repeat or confirm the request.
+  4. Continue all implementation work in the fork. The original task must not modify project files.
+- In the worktree, create a task-specific `codex/` branch before modifying files. If the worktree already has the correct task branch, reuse it.
+- Use one worktree and one branch per independent task. Create another worktree only when the work is genuinely separate or must proceed independently.
+- Keep unrelated local changes in the primary checkout out of the task worktree, branch, and commits.
+- Run checks, commit, and push the task branch from the task worktree. Do not switch the primary checkout away from its default branch.
 
 ## Codex-Specific Tooling
 
