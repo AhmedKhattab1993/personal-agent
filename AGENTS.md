@@ -48,4 +48,13 @@
 
 ## Repository-Specific Guidelines
 
-- Add project-specific architecture, commands, conventions, and restrictions here.
+### Application Structure
+
+- The runnable application lives under `server/`.
+- Keep feature-specific code, API routes, commands, and documentation in the `planning` or `upwork` namespace. Keep shared runtime code directly under `server/`.
+- Treat `server/data/planning-board.json` as user-owned planning state. Modify it only when the requested work changes planning data.
+
+### Verification
+
+- Run `npm test` from `server/` after server, planning, Upwork, or shared frontend logic changes.
+- Run `npm run web:build` from `server/` after frontend or production-build changes.
