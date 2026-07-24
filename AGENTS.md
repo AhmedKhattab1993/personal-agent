@@ -46,13 +46,23 @@
 - If the task is already in a worktree, continue using that worktree. Do not create another worktree or fork merely because implementation begins or discussion continues.
 - When implementation is requested from a task running in the primary checkout:
   1. Fork the current task into a new Codex-managed worktree based on the default branch.
-  2. Send the fork a complete implementation prompt containing the user's request, the agreed requirements, relevant decisions from the discussion, and the required verification.
-  3. Instruct the fork to begin implementation immediately without waiting for the user to repeat or confirm the request.
-  4. Continue all implementation work in the fork. The original task must not modify project files.
+  2. Send the fork a complete implementation prompt containing the user's request, agreed requirements, relevant decisions, required verification, and any explicitly requested Codex goal objective and token budget.
+  3. If the user explicitly requested a Codex goal, instruct the fork to create it as its first action and confirm creation before implementation begins.
+  4. Instruct the fork to begin implementation immediately after any required goal setup, without waiting for the user to repeat or confirm the request.
+  5. Continue all implementation and goal tracking in the fork. The original task must not create, update, mirror, complete, or block the goal, and it must not modify project files.
 - In the worktree, create a task-specific `codex/` branch before modifying files. If the worktree already has the correct task branch, reuse it.
 - Use one worktree and one branch per independent task. Create another worktree only when the work is genuinely separate or must proceed independently.
 - Keep unrelated local changes in the primary checkout out of the task worktree, branch, and commits.
 - Run checks, commit, and push the task branch from the task worktree. Do not switch the primary checkout away from its default branch.
+
+#### Goal Ownership During Worktree Handoffs
+
+- Codex goals are task-local state and do not transfer automatically between tasks.
+- When implementation begins in a primary checkout and the user explicitly requests a Codex goal, the original task must not call `create_goal`. It must fork first and pass the exact goal objective and any explicitly requested token budget to the fork.
+- The fork creates the goal as its first action before implementation. The original task waits for confirmation before treating the handoff as complete.
+- Only the worktree task may update, complete, or block the goal. The original task must not create a duplicate or mirrored goal.
+- If the task is already in the correct isolated worktree, create the goal there and do not fork again.
+- These rules apply to Codex task goals, not application, domain, or planning goals stored by a repository.
 
 ## Codex-Specific Tooling
 
