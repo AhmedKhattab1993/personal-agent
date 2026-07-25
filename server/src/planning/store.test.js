@@ -35,16 +35,22 @@ test('persists directory-backed projects and outcome-oriented goals', async (con
     outcome: 'The intended behavior is available to its user.',
     completionCriteria: 'The behavior works end to end and its tests pass.',
     nonGoals: 'No unrelated refactors.',
+    notes: 'Remember to review this after lunch.',
     status: 'planned',
     priority: 'high',
     assignee: 'human',
   }, { filePath });
   assert.equal(createdGoal.goal.status, 'planned');
   assert.equal(createdGoal.goal.assignee, 'human');
+  assert.equal(createdGoal.goal.notes, 'Remember to review this after lunch.');
 
-  const moved = await updatePlanningGoal(createdGoal.goal.id, { status: 'in_progress' }, { filePath });
+  const moved = await updatePlanningGoal(createdGoal.goal.id, {
+    status: 'in_progress',
+    notes: 'Waiting on my final review.',
+  }, { filePath });
   assert.equal(moved.goal.status, 'in_progress');
   assert.equal(moved.goal.completionCriteria, 'The behavior works end to end and its tests pass.');
+  assert.equal(moved.goal.notes, 'Waiting on my final review.');
 
   const archived = await updatePlanningGoal(createdGoal.goal.id, { status: 'archived' }, { filePath });
   assert.equal(archived.goal.status, 'archived');

@@ -698,6 +698,23 @@ svg { width: 1rem; height: 1rem; stroke-width: 2; }
 .agent-brief-preview strong { font-size: .8125rem; }
 .agent-brief-preview small { color: var(--fg-tertiary); font-size: .6875rem; }
 
+.personal-notes {
+  display: grid; gap: 10px; margin-top: 4px; padding: 16px;
+  border: 1px solid rgba(241,184,90,.25); border-radius: var(--radius);
+  background: rgba(241,184,90,.05);
+}
+.personal-notes > div { display: flex; align-items: center; gap: 9px; }
+.personal-notes > div > svg { width: 16px; color: #f1b85a; }
+.personal-notes > div > span { display: flex; flex-direction: column; gap: 3px; }
+.personal-notes strong { color: var(--fg); font-size: .8125rem; }
+.personal-notes small { color: var(--fg-tertiary); font-size: .6875rem; }
+.personal-notes textarea {
+  min-height: 112px; resize: vertical; padding: 12px 13px;
+  border: 1px solid var(--border-strong); border-radius: var(--radius); outline: 0;
+  color: var(--fg); font-size: .875rem; line-height: 1.6; background: var(--bg);
+}
+.personal-notes textarea:focus { border-color: rgba(241,184,90,.55); box-shadow: 0 0 0 1px rgba(241,184,90,.15); }
+
 .goal-dialog-footer { display: grid !important; grid-template-columns: auto 1fr auto auto; }
 .danger-button { color: var(--danger) !important; }
 

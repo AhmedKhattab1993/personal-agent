@@ -30,7 +30,7 @@ const ASSIGNEES = [
 ];
 
 const EMPTY_PROJECT = { name: '', description: '', directory: '', color: '#5ad9ca' };
-const EMPTY_GOAL = { projectId: '', title: '', outcome: '', completionCriteria: '', nonGoals: '', priority: 'no_priority', status: 'backlog', assignee: 'agent' };
+const EMPTY_GOAL = { projectId: '', title: '', outcome: '', completionCriteria: '', nonGoals: '', notes: '', priority: 'no_priority', status: 'backlog', assignee: 'agent' };
 const GOAL_FIELDS = ['title', 'outcome', 'completionCriteria', 'nonGoals', 'priority', 'status', 'assignee'];
 
 function assistantWelcome(project) {
@@ -185,7 +185,11 @@ export default function PlanningBoard({ navigation }) {
       const result = await api('/api/planning/goal-assistant', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectId: goalForm.projectId, messages: nextMessages, draft: goalForm }),
+        body: JSON.stringify({
+          projectId: goalForm.projectId,
+          messages: nextMessages,
+          draft: Object.fromEntries(GOAL_FIELDS.map((field) => [field, goalForm[field]])),
+        }),
       });
       const updates = Object.fromEntries(GOAL_FIELDS.filter((field) => result.updates?.[field] !== null && result.updates?.[field] !== undefined).map((field) => [field, result.updates[field]]));
       setGoalForm((current) => ({ ...current, ...updates }));
@@ -419,6 +423,7 @@ export default function PlanningBoard({ navigation }) {
                 <Field label="Priority"><Select value={goalForm.priority} onChange={(event) => setGoalForm({ ...goalForm, priority: event.target.value })}>{PRIORITIES.map((priority) => <option key={priority.id} value={priority.id}>{priority.label}</option>)}</Select></Field>
                 <Field label="Assignee"><Select value={goalForm.assignee} onChange={(event) => setGoalForm({ ...goalForm, assignee: event.target.value })}>{ASSIGNEES.map((assignee) => <option key={assignee.id} value={assignee.id}>{assignee.label}</option>)}</Select></Field>
                 {editingGoal && <div className="agent-brief-preview"><div><Code2 /><span><strong>Agent-ready brief</strong><small>Directory + outcome + done + scope boundary</small></span></div><Button type="button" variant="outline" size="sm" onClick={() => copyBrief(editingGoal)}><Clipboard /> {copiedGoal === editingGoal.id ? 'Copied' : 'Copy brief'}</Button></div>}
+                {editingGoal && <section className="personal-notes"><div><User /><span><strong>My notes</strong><small>Private working notes — never copied or sent to the agent.</small></span></div><textarea value={goalForm.notes} onChange={(event) => setGoalForm({ ...goalForm, notes: event.target.value })} placeholder="Write reminders, thoughts, or follow-up details for yourself…" aria-label="My notes" /></section>}
               </section>
 
               <aside className="goal-assistant" aria-label="Agent goal assistant">

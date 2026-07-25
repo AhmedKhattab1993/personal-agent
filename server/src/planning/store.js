@@ -190,6 +190,7 @@ function validateGoalInput(input, board, current = {}) {
     outcome: input.outcome === undefined ? (current.outcome ?? '') : cleanText(input.outcome),
     completionCriteria: input.completionCriteria === undefined ? (current.completionCriteria ?? '') : cleanText(input.completionCriteria),
     nonGoals: input.nonGoals === undefined ? (current.nonGoals ?? '') : cleanText(input.nonGoals),
+    notes: input.notes === undefined ? (current.notes ?? '') : cleanText(input.notes),
   };
 }
 
