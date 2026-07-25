@@ -37,8 +37,10 @@ test('persists directory-backed projects and outcome-oriented goals', async (con
     nonGoals: 'No unrelated refactors.',
     status: 'planned',
     priority: 'high',
+    assignee: 'human',
   }, { filePath });
   assert.equal(createdGoal.goal.status, 'planned');
+  assert.equal(createdGoal.goal.assignee, 'human');
 
   const moved = await updatePlanningGoal(createdGoal.goal.id, { status: 'in_progress' }, { filePath });
   assert.equal(moved.goal.status, 'in_progress');
@@ -75,6 +77,23 @@ test('only requires a title and assigns compact globally unique goal IDs', async
   const third = (await createPlanningGoal({ projectId: projects[1].id, title: 'Third goal' }, { filePath })).goal;
   assert.equal(third.id, '3');
   await assert.rejects(createPlanningGoal({ projectId: projects[0].id }, { filePath }), /Goal title is required/);
+});
+
+test('defaults assignee to agent and rejects unknown values', async (context) => {
+  const directory = await mkdtemp(join(tmpdir(), 'planning-board-'));
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  const projectDirectory = join(directory, 'project');
+  await mkdir(projectDirectory);
+  const filePath = join(directory, 'planning.json');
+  const { project } = await createPlanningProject({ name: 'P', directory: projectDirectory }, { filePath });
+
+  const created = await createPlanningGoal({ projectId: project.id, title: 'Default assignee' }, { filePath });
+  assert.equal(created.goal.assignee, 'agent');
+
+  const updated = await updatePlanningGoal(created.goal.id, { assignee: 'human' }, { filePath });
+  assert.equal(updated.goal.assignee, 'human');
+
+  await assert.rejects(updatePlanningGoal(created.goal.id, { assignee: 'bot' }, { filePath }), /Invalid assignee/);
 });
 
 test('migrates legacy goal UUIDs to stable compact IDs', async (context) => {

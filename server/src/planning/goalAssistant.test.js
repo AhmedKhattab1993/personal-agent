@@ -47,6 +47,7 @@ test('returns validated field updates from the read-only PI assistant', async ()
             nonGoals: 'No repository writes from PI.',
             priority: 'high',
             status: 'planned',
+            assignee: 'agent',
           },
           investigation: { summary: 'Reviewed the web interface.', files: ['web/src/planningBoard.jsx', '../secret'] },
         }),
@@ -58,6 +59,7 @@ test('returns validated field updates from the read-only PI assistant', async ()
   assert.equal(receivedOptions.systemPrompt, GOAL_ASSISTANT_SYSTEM_PROMPT);
   assert.equal(response.updates.priority, 'high');
   assert.equal(response.updates.status, 'planned');
+  assert.equal(response.updates.assignee, 'agent');
   assert.deepEqual(response.investigation.files, ['web/src/planningBoard.jsx']);
 });
 

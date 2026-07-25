@@ -8,6 +8,7 @@ const APP_ROOT = fileURLToPath(new URL('../..', import.meta.url));
 export const DEFAULT_PLANNING_FILE = join(APP_ROOT, 'data', 'planning-board.json');
 export const PLANNING_STATES = ['backlog', 'planned', 'in_progress', 'blocked', 'done', 'archived', 'canceled'];
 export const PLANNING_PRIORITIES = ['no_priority', 'low', 'medium', 'high', 'urgent'];
+export const PLANNING_ASSIGNEES = ['agent', 'human'];
 
 function emptyBoard() {
   return { version: 2, nextGoalId: 1, projects: [], goals: [], updatedAt: new Date().toISOString() };
@@ -178,10 +179,13 @@ function validateGoalInput(input, board, current = {}) {
   if (!PLANNING_STATES.includes(status)) throw new Error('Invalid workflow state');
   const priority = input.priority ?? current.priority ?? 'no_priority';
   if (!PLANNING_PRIORITIES.includes(priority)) throw new Error('Invalid priority');
+  const assignee = input.assignee ?? current.assignee ?? 'agent';
+  if (!PLANNING_ASSIGNEES.includes(assignee)) throw new Error('Invalid assignee');
   return {
     projectId,
     status,
     priority,
+    assignee,
     title: cleanText(input.title === undefined ? current.title : input.title, { required: true, label: 'Goal title' }),
     outcome: input.outcome === undefined ? (current.outcome ?? '') : cleanText(input.outcome),
     completionCriteria: input.completionCriteria === undefined ? (current.completionCriteria ?? '') : cleanText(input.completionCriteria),

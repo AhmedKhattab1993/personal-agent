@@ -610,6 +610,15 @@ svg { width: 1rem; height: 1rem; stroke-width: 2; }
 .priority-medium { --priority-color: #f5a623; }
 .priority-high { --priority-color: #ff7a59; }
 .priority-urgent { --priority-color: #ff4d4f; }
+.assignee-chip {
+  --assignee-color: var(--fg-tertiary); display: inline-flex; align-items: center; gap: 4px;
+  margin-left: 5px; padding: 2px 7px; border: 1px solid color-mix(in srgb, var(--assignee-color) 30%, transparent);
+  border-radius: 999px; color: color-mix(in srgb, var(--assignee-color) 70%, var(--fg));
+  font-size: .625rem; font-weight: 500; background: color-mix(in srgb, var(--assignee-color) 8%, transparent);
+}
+.assignee-chip svg { width: 10px; height: 10px; }
+.assignee-agent { --assignee-color: #5ad9ca; }
+.assignee-human { --assignee-color: #f1b85a; }
 .goal-id { margin-left: 6px; color: var(--fg-tertiary); font: 500 .6875rem/1 ui-monospace,SFMono-Regular,Menlo,monospace; }
 .goal-card h3 {
   display: -webkit-box; margin: 7px 0 5px; overflow: hidden; color: var(--fg);

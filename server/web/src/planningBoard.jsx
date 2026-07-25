@@ -3,7 +3,7 @@ import {
   AlertCircle, Archive, ArrowRight, Bot, Check, CheckCircle2, Circle, Clipboard,
   Clock3, Code2, Copy, Folder, FolderGit2, GripVertical, LayoutDashboard,
   FileSearch, FolderOpen, PauseCircle, Pencil, Plus, Search, Send, ShieldCheck, Sparkles,
-  Target, Trash2, X, Zap,
+  Target, Trash2, User, X, Zap,
 } from 'lucide-react';
 
 import { Badge, Button, Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle, Input, Select } from './components/ui.jsx';
@@ -24,9 +24,14 @@ const PRIORITIES = [
   { id: 'urgent', label: 'Urgent' },
 ];
 
+const ASSIGNEES = [
+  { id: 'agent', label: 'Agent' },
+  { id: 'human', label: 'Human' },
+];
+
 const EMPTY_PROJECT = { name: '', description: '', directory: '', color: '#5ad9ca' };
-const EMPTY_GOAL = { projectId: '', title: '', outcome: '', completionCriteria: '', nonGoals: '', priority: 'no_priority', status: 'backlog' };
-const GOAL_FIELDS = ['title', 'outcome', 'completionCriteria', 'nonGoals', 'priority', 'status'];
+const EMPTY_GOAL = { projectId: '', title: '', outcome: '', completionCriteria: '', nonGoals: '', priority: 'no_priority', status: 'backlog', assignee: 'agent' };
+const GOAL_FIELDS = ['title', 'outcome', 'completionCriteria', 'nonGoals', 'priority', 'status', 'assignee'];
 
 function assistantWelcome(project) {
   return {
@@ -58,6 +63,8 @@ function agentBrief(goal, project) {
     `Working directory: ${project.directory}`,
     '',
     `Goal: ${goal.title}`,
+    '',
+    `Assignee: ${goal.assignee === 'human' ? 'Human' : 'Agent'}`,
     '',
     `Desired outcome: ${goal.outcome || 'Not specified.'}`,
     '',
@@ -358,6 +365,8 @@ export default function PlanningBoard({ navigation }) {
                   {goals.map((goal) => {
                     const project = projectMap[goal.projectId];
                     const priority = PRIORITIES.find((item) => item.id === goal.priority) ?? PRIORITIES[0];
+                    const assignee = ASSIGNEES.find((item) => item.id === goal.assignee) ?? ASSIGNEES[0];
+                    const AssigneeIcon = assignee.id === 'human' ? User : Bot;
                     const dropEdge = goalDropTarget?.id === goal.id ? goalDropTarget.edge : null;
                     return <article
                       key={goal.id}
@@ -369,7 +378,7 @@ export default function PlanningBoard({ navigation }) {
                       onDragEnd={() => { setDraggedGoal(null); setGoalDropTarget(null); }}
                       onClick={() => openGoal(goal)}
                     >
-                      <div className="goal-card-top"><GripVertical className="drag-handle" /><span className={`priority-chip priority-${goal.priority}`} title={`Priority: ${priority.label}`}><i />{priority.label}</span><code className="goal-id" title={`Goal ID: ${goal.id}`}>#{goal.id}</code><button onClick={(event) => { event.stopPropagation(); copyBrief(goal); }} title="Copy agent brief" aria-label={`Copy agent brief for ${goal.title}`}>{copiedGoal === goal.id ? <Check /> : <Copy />}</button><button onClick={(event) => { event.stopPropagation(); moveGoal(goal, 'archived', 0); }} title="Archive goal" aria-label={`Archive ${goal.title}`}><Archive /></button></div>
+                      <div className="goal-card-top"><GripVertical className="drag-handle" /><span className={`priority-chip priority-${goal.priority}`} title={`Priority: ${priority.label}`}><i />{priority.label}</span><span className={`assignee-chip assignee-${goal.assignee}`} title={`Assignee: ${assignee.label}`}><AssigneeIcon />{assignee.label}</span><code className="goal-id" title={`Goal ID: ${goal.id}`}>#{goal.id}</code><button onClick={(event) => { event.stopPropagation(); copyBrief(goal); }} title="Copy agent brief" aria-label={`Copy agent brief for ${goal.title}`}>{copiedGoal === goal.id ? <Check /> : <Copy />}</button><button onClick={(event) => { event.stopPropagation(); moveGoal(goal, 'archived', 0); }} title="Archive goal" aria-label={`Archive ${goal.title}`}><Archive /></button></div>
                       <h3>{goal.title}</h3>
                       <footer><span className="project-chip" style={{ '--project-color': project.color }}><i>{initials(project.name)}</i>{project.name}</span><time>{relativeDate(goal.updatedAt)}</time></footer>
                     </article>;
@@ -408,6 +417,7 @@ export default function PlanningBoard({ navigation }) {
                 <Field label="Definition of done" hint="Optional. Use observable, verifiable acceptance criteria."><textarea value={goalForm.completionCriteria} onChange={(event) => setGoalForm({ ...goalForm, completionCriteria: event.target.value })} placeholder={'• The outcome works end to end\n• Relevant tests pass\n• The visible result is verified'} /></Field>
                 <Field label="Out of scope / ignore" hint="Protect the goal from scope drift. Avoid prescribing how to implement it."><textarea value={goalForm.nonGoals} onChange={(event) => setGoalForm({ ...goalForm, nonGoals: event.target.value })} placeholder="No unrelated refactors; no publishing or external changes." /></Field>
                 <Field label="Priority"><Select value={goalForm.priority} onChange={(event) => setGoalForm({ ...goalForm, priority: event.target.value })}>{PRIORITIES.map((priority) => <option key={priority.id} value={priority.id}>{priority.label}</option>)}</Select></Field>
+                <Field label="Assignee"><Select value={goalForm.assignee} onChange={(event) => setGoalForm({ ...goalForm, assignee: event.target.value })}>{ASSIGNEES.map((assignee) => <option key={assignee.id} value={assignee.id}>{assignee.label}</option>)}</Select></Field>
                 {editingGoal && <div className="agent-brief-preview"><div><Code2 /><span><strong>Agent-ready brief</strong><small>Directory + outcome + done + scope boundary</small></span></div><Button type="button" variant="outline" size="sm" onClick={() => copyBrief(editingGoal)}><Clipboard /> {copiedGoal === editingGoal.id ? 'Copied' : 'Copy brief'}</Button></div>}
               </section>
 
@@ -418,7 +428,7 @@ export default function PlanningBoard({ navigation }) {
                   {assistantMessages.map((message, index) => <div key={`${message.role}-${index}`} className={`assistant-message ${message.role}`}><span>{message.role === 'assistant' ? <Bot /> : initials('Ahmed Khattab')}</span><p>{message.content}</p></div>)}
                   {assistantLoading && <div className="assistant-message assistant thinking"><span><Bot /></span><p><i /><i /><i /></p></div>}
                   {assistantError && <div className="assistant-chat-error"><AlertCircle />{assistantError}</div>}
-                  {appliedFields.length > 0 && <div className="assistant-applied"><CheckCircle2 /><span><strong>Form updated</strong><small>{appliedFields.map((field) => ({ title: 'Goal', outcome: 'Outcome', completionCriteria: 'Done', nonGoals: 'Non-goals', priority: 'Priority', status: 'State' })[field]).join(' · ')}</small></span></div>}
+                  {appliedFields.length > 0 && <div className="assistant-applied"><CheckCircle2 /><span><strong>Form updated</strong><small>{appliedFields.map((field) => ({ title: 'Goal', outcome: 'Outcome', completionCriteria: 'Done', nonGoals: 'Non-goals', priority: 'Priority', status: 'State', assignee: 'Assignee' })[field]).join(' · ')}</small></span></div>}
                   {assistantEvidence?.summary && <div className="assistant-evidence"><span><FileSearch /> Project evidence</span><p>{assistantEvidence.summary}</p>{assistantEvidence.files?.length > 0 && <div>{assistantEvidence.files.map((file) => <code key={file}>{file}</code>)}</div>}</div>}
                 </div>
                 {assistantMessages.length <= 1 && <div className="assistant-starters"><button type="button" onClick={() => sendGoalAssistant('Investigate this project and help me identify the most important questions needed to define this goal.')}>Investigate project</button><button type="button" onClick={() => sendGoalAssistant('Review the current draft against this project, refine it, and fill every field you can support.')}>Refine current draft</button></div>}
