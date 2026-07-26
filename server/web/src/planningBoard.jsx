@@ -228,12 +228,18 @@ export default function PlanningBoard({ navigation }) {
     setProjectDialog(true);
   }
 
-  async function unlinkProject() {
-    if (!editingProject || !window.confirm(`Unlink “${editingProject.name}”? The directory on disk will not be changed.`)) return;
+  async function deleteProject(project) {
+    if (!project) return;
+    const goalCount = board.goals.filter((goal) => goal.projectId === project.id && goal.status !== 'archived').length;
+    const message = goalCount > 0
+      ? `Delete “${project.name}”? Its ${goalCount} open ${goalCount === 1 ? 'goal' : 'goals'} will be archived, and the directory on disk will not be changed.`
+      : `Delete “${project.name}”? The directory on disk will not be changed.`;
+    if (!window.confirm(message)) return;
     try {
-      setBoard(await api(`/api/planning/projects/${encodeURIComponent(editingProject.id)}`, { method: 'DELETE' }));
-      setProjectFilter('all'); setProjectDialog(false); setEditingProject(null);
-    } catch (unlinkError) { setError(unlinkError.message); }
+      setBoard(await api(`/api/planning/projects/${encodeURIComponent(project.id)}`, { method: 'DELETE' }));
+      if (editingProject?.id === project.id) { setProjectDialog(false); setEditingProject(null); }
+      if (projectFilter === project.id) setProjectFilter('all');
+    } catch (deleteError) { setError(deleteError.message); }
   }
 
   async function submitGoal(event) {
@@ -326,8 +332,8 @@ export default function PlanningBoard({ navigation }) {
 
         <section className="planning-toolbar">
           <div className="project-switcher">
-            <button className={projectFilter === 'all' ? 'active' : ''} onClick={() => setProjectFilter('all')}><span className="project-avatar all"><FolderGit2 /></span><span><strong>All projects</strong><small>{board.projects.length} linked directories</small></span></button>
-            {board.projects.map((project) => <button
+            <button className={projectFilter === 'all' ? 'active' : ''} onClick={() => setProjectFilter('all')}><span className="project-avatar all"><FolderGit2 /></span><span className="project-label"><strong>All projects</strong><small>{board.projects.length} linked directories</small></span></button>
+            {board.projects.map((project) => <div
               key={project.id}
               className={`project-tab ${projectFilter === project.id ? 'active' : ''} ${draggedProject === project.id ? 'dragging' : ''}`}
               draggable
@@ -336,10 +342,9 @@ export default function PlanningBoard({ navigation }) {
               onDrop={(event) => { event.preventDefault(); moveProject(draggedProject, project.id); setDraggedProject(null); }}
               onDragEnd={() => setDraggedProject(null)}
               onClick={() => setProjectFilter(project.id)}
-              title="Drag to reorder project"
-            ><GripVertical className="project-drag-handle" /><span className="project-avatar" style={{ '--project-color': project.color }}>{initials(project.name)}</span><span><strong>{project.name}</strong><small>{board.goals.filter((goal) => goal.projectId === project.id && !['done', 'archived', 'canceled'].includes(goal.status)).length} open goals</small></span></button>)}
+              title="Drag to reorder · click to filter"
+            ><GripVertical className="project-drag-handle" /><span className="project-avatar" style={{ '--project-color': project.color }}>{initials(project.name)}</span><span className="project-label"><strong>{project.name}</strong><small>{board.goals.filter((goal) => goal.projectId === project.id && !['done', 'archived', 'canceled'].includes(goal.status)).length} open goals</small></span><span className="project-tab-actions"><button type="button" className="project-tab-edit" title={`Edit ${project.name}`} aria-label={`Edit ${project.name}`} onClick={(event) => { event.stopPropagation(); openProject(project); }}><Pencil /></button><button type="button" className="project-tab-delete" title={`Delete ${project.name}`} aria-label={`Delete ${project.name}`} onClick={(event) => { event.stopPropagation(); deleteProject(project); }}><Trash2 /></button></span></div>)}
             <button className="add-project" onClick={() => openProject()}><Plus /> Link project</button>
-            {projectFilter !== 'all' && projectMap[projectFilter] && <button className="edit-project" onClick={() => openProject(projectMap[projectFilter])}><Pencil /> Project settings</button>}
           </div>
           <div className="board-controls"><div className="search-wrap"><Search /><Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search outcomes or criteria…" />{query && <button onClick={() => setQuery('')}><X /></button>}</div><span><Sparkles /> {visibleGoals.length} goals in view</span></div>
         </section>
@@ -404,7 +409,7 @@ export default function PlanningBoard({ navigation }) {
               <Field label="Directory on disk" hint="Choose a folder or enter an absolute path (starting with /) or a ~/ path."><div className="path-input"><Folder /><Input required value={projectForm.directory} onChange={(event) => setProjectForm({ ...projectForm, directory: event.target.value })} placeholder="~/projects/my-project" /><button type="button" className="choose-directory-button" onClick={chooseProjectDirectory} aria-label="Choose directory" title="Choose directory"><FolderOpen /></button></div></Field>
               <Field label="Project context" hint="Optional orientation only—keep individual work in goal cards."><textarea value={projectForm.description} onChange={(event) => setProjectForm({ ...projectForm, description: event.target.value })} placeholder="What this project exists to accomplish…" /></Field>
             </DialogBody>
-            <DialogFooter className={editingProject ? 'goal-dialog-footer' : ''}>{editingProject && <Button type="button" variant="ghost" className="danger-button" onClick={unlinkProject}><Trash2 /> Unlink</Button>}{editingProject && <span />}<Button type="button" variant="ghost" onClick={() => setProjectDialog(false)}>Cancel</Button><Button disabled={saving}>{saving ? 'Validating…' : editingProject ? 'Save project' : 'Link project'} <ArrowRight /></Button></DialogFooter>
+            <DialogFooter className={editingProject ? 'goal-dialog-footer' : ''}>{editingProject && <Button type="button" variant="ghost" className="danger-button" onClick={() => deleteProject(editingProject)}><Trash2 /> Delete</Button>}{editingProject && <span />}<Button type="button" variant="ghost" onClick={() => setProjectDialog(false)}>Cancel</Button><Button disabled={saving}>{saving ? 'Validating…' : editingProject ? 'Save project' : 'Link project'} <ArrowRight /></Button></DialogFooter>
           </form>
         </DialogContent>
       </Dialog>

@@ -1,5 +1,5 @@
-import { randomUUID } from 'node:crypto';
-import { access, mkdir, readFile, rename, stat, writeFile } from 'node:fs/promises';
+import { randomBytes, randomUUID } from 'node:crypto';
+import { access, mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -109,9 +109,14 @@ async function savePlanningBoard(board, { filePath = DEFAULT_PLANNING_FILE } = {
       directory: persistDirectory(project.directory),
     })),
   };
-  const temporary = `${filePath}.${process.pid}.tmp`;
+  const temporary = `${filePath}.${process.pid}.${randomBytes(6).toString('hex')}.tmp`;
   await writeFile(temporary, `${JSON.stringify(persisted, null, 2)}\n`, 'utf8');
-  await rename(temporary, filePath);
+  try {
+    await rename(temporary, filePath);
+  } catch (error) {
+    await rm(temporary, { force: true });
+    throw error;
+  }
   return next;
 }
 
@@ -165,11 +170,15 @@ export async function deletePlanningProject(projectId, options = {}) {
   const board = await loadPlanningBoard(options);
   const index = board.projects.findIndex((project) => project.id === projectId);
   if (index < 0) throw new Error('Project not found');
-  if (board.goals.some((goal) => goal.projectId === projectId)) {
-    throw new Error('Delete or move this project’s goals before unlinking it');
-  }
+  let archivedGoalCount = 0;
+  board.goals = board.goals.map((goal) => {
+    if (goal.projectId !== projectId) return goal;
+    if (goal.status === 'archived') return goal;
+    archivedGoalCount += 1;
+    return { ...goal, status: 'archived', updatedAt: new Date().toISOString() };
+  });
   const [project] = board.projects.splice(index, 1);
-  return { board: await savePlanningBoard(board, options), project };
+  return { board: await savePlanningBoard(board, options), project, archivedGoalCount };
 }
 
 function validateGoalInput(input, board, current = {}) {

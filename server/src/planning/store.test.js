@@ -62,6 +62,29 @@ test('persists directory-backed projects and outcome-oriented goals', async (con
   assert.equal(finalBoard.goals.length, 0);
 });
 
+test('deleting a project archives its remaining goals instead of blocking', async (context) => {
+  const directory = await mkdtemp(join(tmpdir(), 'planning-board-'));
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  const projectDirectory = join(directory, 'project');
+  const filePath = join(directory, 'planning.json');
+  await mkdir(projectDirectory);
+
+  const { project } = await createPlanningProject({ name: 'P', directory: projectDirectory }, { filePath });
+  const openGoal = (await createPlanningGoal({ projectId: project.id, title: 'Still open', status: 'in_progress' }, { filePath })).goal;
+  const alreadyArchived = (await createPlanningGoal({ projectId: project.id, title: 'Already archived', status: 'archived' }, { filePath })).goal;
+
+  const result = await deletePlanningProject(project.id, { filePath });
+  assert.equal(result.archivedGoalCount, 1);
+  assert.equal(result.board.projects.length, 0);
+
+  const reloaded = await loadPlanningBoard({ filePath });
+  assert.equal(reloaded.projects.length, 0);
+  assert.equal(reloaded.goals.length, 2);
+  assert.deepEqual(reloaded.goals.map((goal) => goal.status), ['archived', 'archived']);
+  assert.equal(reloaded.goals.find((goal) => goal.id === openGoal.id).status, 'archived');
+  assert.equal(reloaded.goals.find((goal) => goal.id === alreadyArchived.id).status, 'archived');
+});
+
 test('only requires a title and assigns compact globally unique goal IDs', async (context) => {
   const directory = await mkdtemp(join(tmpdir(), 'planning-board-'));
   context.after(() => rm(directory, { recursive: true, force: true }));

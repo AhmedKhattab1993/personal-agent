@@ -497,23 +497,34 @@ svg { width: 1rem; height: 1rem; stroke-width: 2; }
   border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--bg-elevated);
   scrollbar-width: thin;
 }
-.project-switcher button {
+.project-switcher button, .project-switcher .project-tab {
   display: flex; align-items: center; flex: 0 0 auto; gap: 10px; min-width: 162px; height: 54px;
   padding: 6px 12px; border: 1px solid transparent; border-radius: var(--radius);
   color: var(--fg-secondary); text-align: left; background: transparent;
   transition: .15s ease;
 }
-.project-switcher button:hover, .project-switcher button.active {
+.project-switcher button:hover, .project-switcher button.active,
+.project-switcher .project-tab:hover, .project-switcher .project-tab.active {
   border-color: var(--border-strong); color: var(--fg); background: var(--surface);
 }
-.project-switcher button > span:last-child { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
-.project-switcher button strong { overflow: hidden; max-width: 145px; color: var(--fg); font-size: .8125rem; text-overflow: ellipsis; white-space: nowrap; }
-.project-switcher button small { color: var(--fg-tertiary); font-size: .6875rem; }
+.project-switcher .project-label { display: flex; min-width: 0; flex: 1 1 auto; flex-direction: column; gap: 2px; }
+.project-switcher .project-label strong { overflow: hidden; max-width: 145px; color: var(--fg); font-size: .8125rem; text-overflow: ellipsis; white-space: nowrap; }
+.project-switcher .project-label small { color: var(--fg-tertiary); font-size: .6875rem; }
 .project-switcher .project-tab { cursor: grab; }
 .project-switcher .project-tab:active { cursor: grabbing; }
 .project-switcher .project-tab.dragging { opacity: .4; }
 .project-drag-handle { width: 13px; height: 13px; flex: 0 0 auto; color: var(--fg-quaternary); }
 .project-switcher .project-tab:hover .project-drag-handle { color: var(--fg-tertiary); }
+.project-tab-actions { display: flex; align-items: center; gap: 2px; flex: 0 0 auto; margin-left: auto; opacity: 0; transition: opacity .15s ease; }
+.project-tab:hover .project-tab-actions, .project-tab.active .project-tab-actions { opacity: 1; }
+.project-tab-actions button {
+  display: grid; place-items: center; min-width: auto; width: 26px; height: 26px; padding: 0;
+  border: 1px solid transparent; border-radius: var(--radius-sm);
+  color: var(--fg-tertiary); background: transparent; cursor: pointer; transition: .15s ease;
+}
+.project-tab-actions button svg { width: 13px; }
+.project-tab-actions button:hover { color: var(--fg); background: var(--bg); border-color: var(--border-strong); }
+.project-tab-actions .project-tab-delete:hover { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, transparent); }
 .project-avatar {
   --project-color: #fff; display: grid !important; place-items: center;
   width: 34px; height: 34px; flex: 0 0 auto;
@@ -523,11 +534,11 @@ svg { width: 1rem; height: 1rem; stroke-width: 2; }
 }
 .project-avatar.all { color: var(--fg); }
 .project-avatar.all svg { width: 14px; }
-.project-switcher .add-project, .project-switcher .edit-project {
+.project-switcher .add-project {
   min-width: auto; border-style: dashed; border-color: var(--border-strong);
   color: var(--fg-secondary); font-size: .8125rem;
 }
-.project-switcher .add-project:hover, .project-switcher .edit-project:hover {
+.project-switcher .add-project:hover {
   border-color: var(--border-hover); color: var(--fg);
 }
 
