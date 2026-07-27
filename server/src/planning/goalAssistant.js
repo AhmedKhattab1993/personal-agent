@@ -53,7 +53,7 @@ ${JSON.stringify({
     nonGoals: compactText(draft?.nonGoals, FIELD_LIMITS.nonGoals),
     priority: draft?.priority ?? 'no_priority',
     status: draft?.status ?? 'backlog',
-    assignee: draft?.assignee ?? 'agent',
+    assignee: draft?.assignee ?? 'human',
   })}
 
 Conversation:

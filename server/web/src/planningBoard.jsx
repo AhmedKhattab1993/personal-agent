@@ -30,7 +30,7 @@ const ASSIGNEES = [
 ];
 
 const EMPTY_PROJECT = { name: '', description: '', directory: '', color: '#5ad9ca' };
-const EMPTY_GOAL = { projectId: '', title: '', outcome: '', completionCriteria: '', nonGoals: '', notes: '', priority: 'no_priority', status: 'backlog', assignee: 'agent' };
+const EMPTY_GOAL = { projectId: '', title: '', outcome: '', completionCriteria: '', nonGoals: '', notes: '', priority: 'no_priority', status: 'backlog', assignee: 'human' };
 const GOAL_FIELDS = ['title', 'outcome', 'completionCriteria', 'nonGoals', 'priority', 'status', 'assignee'];
 
 function assistantWelcome(project) {

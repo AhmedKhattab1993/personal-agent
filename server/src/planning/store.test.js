@@ -108,7 +108,7 @@ test('only requires a title and assigns compact globally unique goal IDs', async
   await assert.rejects(createPlanningGoal({ projectId: projects[0].id }, { filePath }), /Goal title is required/);
 });
 
-test('defaults assignee to agent and rejects unknown values', async (context) => {
+test('defaults assignee to human and rejects unknown values', async (context) => {
   const directory = await mkdtemp(join(tmpdir(), 'planning-board-'));
   context.after(() => rm(directory, { recursive: true, force: true }));
   const projectDirectory = join(directory, 'project');
@@ -117,10 +117,10 @@ test('defaults assignee to agent and rejects unknown values', async (context) =>
   const { project } = await createPlanningProject({ name: 'P', directory: projectDirectory }, { filePath });
 
   const created = await createPlanningGoal({ projectId: project.id, title: 'Default assignee' }, { filePath });
-  assert.equal(created.goal.assignee, 'agent');
+  assert.equal(created.goal.assignee, 'human');
 
-  const updated = await updatePlanningGoal(created.goal.id, { assignee: 'human' }, { filePath });
-  assert.equal(updated.goal.assignee, 'human');
+  const updated = await updatePlanningGoal(created.goal.id, { assignee: 'agent' }, { filePath });
+  assert.equal(updated.goal.assignee, 'agent');
 
   await assert.rejects(updatePlanningGoal(created.goal.id, { assignee: 'bot' }, { filePath }), /Invalid assignee/);
 });

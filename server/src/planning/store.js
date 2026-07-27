@@ -188,7 +188,7 @@ function validateGoalInput(input, board, current = {}) {
   if (!PLANNING_STATES.includes(status)) throw new Error('Invalid workflow state');
   const priority = input.priority ?? current.priority ?? 'no_priority';
   if (!PLANNING_PRIORITIES.includes(priority)) throw new Error('Invalid priority');
-  const assignee = input.assignee ?? current.assignee ?? 'agent';
+  const assignee = input.assignee ?? current.assignee ?? 'human';
   if (!PLANNING_ASSIGNEES.includes(assignee)) throw new Error('Invalid assignee');
   return {
     projectId,
