@@ -125,6 +125,23 @@ test('defaults assignee to human and rejects unknown values', async (context) =>
   await assert.rejects(updatePlanningGoal(created.goal.id, { assignee: 'bot' }, { filePath }), /Invalid assignee/);
 });
 
+test('defaults hiddenFromAll to false and toggles via update', async (context) => {
+  const directory = await mkdtemp(join(tmpdir(), 'planning-board-'));
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  const projectDirectory = join(directory, 'project');
+  await mkdir(projectDirectory);
+  const filePath = join(directory, 'planning.json');
+  const { project } = await createPlanningProject({ name: 'P', directory: projectDirectory }, { filePath });
+
+  assert.equal(project.hiddenFromAll, false);
+
+  const updated = await updatePlanningProject(project.id, { hiddenFromAll: true }, { filePath });
+  assert.equal(updated.project.hiddenFromAll, true);
+
+  const cleared = await updatePlanningProject(project.id, { hiddenFromAll: false }, { filePath });
+  assert.equal(cleared.project.hiddenFromAll, false);
+});
+
 test('migrates legacy goal UUIDs to stable compact IDs', async (context) => {
   const directory = await mkdtemp(join(tmpdir(), 'planning-board-'));
   context.after(() => rm(directory, { recursive: true, force: true }));

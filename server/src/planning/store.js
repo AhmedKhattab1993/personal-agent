@@ -133,6 +133,7 @@ export async function createPlanningProject(input, options = {}) {
     description: cleanText(input.description),
     directory,
     color: /^#[0-9a-f]{6}$/i.test(input.color ?? '') ? input.color : '#5ad9ca',
+    hiddenFromAll: Boolean(input.hiddenFromAll),
     createdAt: now,
     updatedAt: now,
   };
@@ -155,6 +156,7 @@ export async function updatePlanningProject(projectId, input, options = {}) {
     description: input.description === undefined ? current.description : cleanText(input.description),
     directory,
     color: /^#[0-9a-f]{6}$/i.test(input.color ?? '') ? input.color : current.color,
+    hiddenFromAll: input.hiddenFromAll === undefined ? current.hiddenFromAll : Boolean(input.hiddenFromAll),
     updatedAt: new Date().toISOString(),
   };
   board.projects[index] = project;

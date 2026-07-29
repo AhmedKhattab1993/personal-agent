@@ -29,7 +29,7 @@ const ASSIGNEES = [
   { id: 'human', label: 'Human' },
 ];
 
-const EMPTY_PROJECT = { name: '', description: '', directory: '', color: '#5ad9ca' };
+const EMPTY_PROJECT = { name: '', description: '', directory: '', color: '#5ad9ca', hiddenFromAll: false };
 const EMPTY_GOAL = { projectId: '', title: '', outcome: '', completionCriteria: '', nonGoals: '', notes: '', priority: 'no_priority', status: 'backlog', assignee: 'human' };
 const GOAL_FIELDS = ['title', 'outcome', 'completionCriteria', 'nonGoals', 'priority', 'status', 'assignee'];
 
@@ -141,17 +141,20 @@ export default function PlanningBoard({ navigation }) {
   useEffect(() => { loadBoard(); }, []);
 
   const projectMap = useMemo(() => Object.fromEntries(board.projects.map((project) => [project.id, project])), [board.projects]);
+  const hiddenProjectIds = useMemo(() => new Set(board.projects.filter((project) => project.hiddenFromAll).map((project) => project.id)), [board.projects]);
   const visibleGoals = useMemo(() => board.goals.filter((goal) => {
     if (['archived', 'canceled'].includes(goal.status)) return false;
+    if (projectFilter === 'all' && hiddenProjectIds.has(goal.projectId)) return false;
     if (projectFilter !== 'all' && goal.projectId !== projectFilter) return false;
     if (!query.trim()) return true;
     return [goal.id, goal.title, goal.outcome, goal.completionCriteria, goal.nonGoals, projectMap[goal.projectId]?.name].join(' ').toLowerCase().includes(query.trim().toLowerCase());
-  }), [board.goals, projectFilter, query, projectMap]);
+  }), [board.goals, projectFilter, query, projectMap, hiddenProjectIds]);
 
   const counts = useMemo(() => Object.fromEntries(STATES.map((state) => [state.id, visibleGoals.filter((goal) => goal.status === state.id).length])), [visibleGoals]);
-  const activeCount = board.goals.filter((goal) => goal.status === 'in_progress').length;
-  const readyCount = board.goals.filter((goal) => goal.status === 'planned').length;
-  const doneCount = board.goals.filter((goal) => goal.status === 'done').length;
+  const summaryGoals = useMemo(() => board.goals.filter((goal) => !hiddenProjectIds.has(goal.projectId)), [board.goals, hiddenProjectIds]);
+  const activeCount = summaryGoals.filter((goal) => goal.status === 'in_progress').length;
+  const readyCount = summaryGoals.filter((goal) => goal.status === 'planned').length;
+  const doneCount = summaryGoals.filter((goal) => goal.status === 'done').length;
 
   function resetAssistant(projectId) {
     const project = board.projects.find((item) => item.id === projectId);
@@ -224,7 +227,7 @@ export default function PlanningBoard({ navigation }) {
 
   function openProject(project = null) {
     setEditingProject(project);
-    setProjectForm(project ? { name: project.name, description: project.description, directory: project.directory, color: project.color } : EMPTY_PROJECT);
+    setProjectForm(project ? { name: project.name, description: project.description, directory: project.directory, color: project.color, hiddenFromAll: project.hiddenFromAll ?? false } : EMPTY_PROJECT);
     setProjectDialog(true);
   }
 
@@ -408,6 +411,7 @@ export default function PlanningBoard({ navigation }) {
               <div className="form-grid"><Field label="Project name"><Input autoFocus required value={projectForm.name} onChange={(event) => setProjectForm({ ...projectForm, name: event.target.value })} placeholder="e.g. Personal Agent" /></Field><Field label="Accent color"><input className="color-input" type="color" value={projectForm.color} onChange={(event) => setProjectForm({ ...projectForm, color: event.target.value })} /></Field></div>
               <Field label="Directory on disk" hint="Choose a folder or enter an absolute path (starting with /) or a ~/ path."><div className="path-input"><Folder /><Input required value={projectForm.directory} onChange={(event) => setProjectForm({ ...projectForm, directory: event.target.value })} placeholder="~/projects/my-project" /><button type="button" className="choose-directory-button" onClick={chooseProjectDirectory} aria-label="Choose directory" title="Choose directory"><FolderOpen /></button></div></Field>
               <Field label="Project context" hint="Optional orientation only—keep individual work in goal cards."><textarea value={projectForm.description} onChange={(event) => setProjectForm({ ...projectForm, description: event.target.value })} placeholder="What this project exists to accomplish…" /></Field>
+              {editingProject && <label className="checkbox-field"><input type="checkbox" checked={!!projectForm.hiddenFromAll} onChange={(event) => setProjectForm({ ...projectForm, hiddenFromAll: event.target.checked })} /><span>Hide from the All-projects overview<small>The project keeps its own tab; its goals just stay out of the aggregate columns and counts.</small></span></label>}
             </DialogBody>
             <DialogFooter className={editingProject ? 'goal-dialog-footer' : ''}>{editingProject && <Button type="button" variant="ghost" className="danger-button" onClick={() => deleteProject(editingProject)}><Trash2 /> Delete</Button>}{editingProject && <span />}<Button type="button" variant="ghost" onClick={() => setProjectDialog(false)}>Cancel</Button><Button disabled={saving}>{saving ? 'Validating…' : editingProject ? 'Save project' : 'Link project'} <ArrowRight /></Button></DialogFooter>
           </form>
