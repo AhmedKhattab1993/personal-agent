@@ -29,10 +29,10 @@ export function Select({ className, ...props }) {
   return <select className={cx('ui-input', className)} {...props} />;
 }
 
-export function Dialog({ open, children }) {
+export function Dialog({ open, className, children }) {
   if (!open) return null;
   return (
-    <div className="ui-dialog">
+    <div className={cx('ui-dialog', className)}>
       {children}
     </div>
   );

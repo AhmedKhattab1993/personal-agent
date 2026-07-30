@@ -222,7 +222,7 @@ export default function PlanningBoard({ navigation }) {
   const [draggedProject, setDraggedProject] = useState(null);
   const [draggedGoal, setDraggedGoal] = useState(null);
   const [goalDropTarget, setGoalDropTarget] = useState(null);
-  const [boardView, setBoardView] = useState('kanban');
+  const [graphOpen, setGraphOpen] = useState(false);
   const [copiedGoal, setCopiedGoal] = useState(null);
   const [assistantMessages, setAssistantMessages] = useState([]);
   const [assistantInput, setAssistantInput] = useState('');
@@ -459,17 +459,13 @@ export default function PlanningBoard({ navigation }) {
             <button className="add-project" onClick={() => openProject()}><Plus /> Link project</button>
           </div>
           <div className="board-controls"><div className="search-wrap"><Search /><Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search outcomes or criteria…" />{query && <button onClick={() => setQuery('')}><X /></button>}</div><div className="view-toggle" role="group" aria-label="Board view">
-            <button type="button" className={boardView === 'kanban' ? 'active' : ''} onClick={() => setBoardView('kanban')} title="Board view"><LayoutDashboard /> Board</button>
-            <button type="button" className={boardView === 'graph' ? 'active' : ''} onClick={() => setBoardView('graph')} title="Dependency graph"><Share2 /> Graph</button>
-          </div><span><Sparkles /> {boardView === 'graph' ? graphGoals.length : visibleGoals.length} goals in view</span></div>
+            <button type="button" className={!graphOpen ? 'active' : ''} onClick={() => setGraphOpen(false)} title="Board view"><LayoutDashboard /> Board</button>
+            <button type="button" className={graphOpen ? 'active' : ''} onClick={() => setGraphOpen(true)} title="Open dependency graph"><Share2 /> Graph</button>
+          </div><span><Sparkles /> {visibleGoals.length} goals in view</span></div>
         </section>
 
         {loading ? <div className="loading-state"><Clock3 /><span>Loading the local plan…</span></div> : board.projects.length === 0 ? (
           <section className="planning-empty"><div className="empty-orbit"><Folder /></div><span className="section-kicker">Start with repository truth</span><h2>Link your first project directory</h2><p>Every goal belongs to a real folder so an agent knows exactly where to begin—without baking the implementation into the plan.</p><Button onClick={() => openProject()}><Plus /> Link project</Button></section>
-        ) : boardView === 'graph' ? (
-          <ReactFlowProvider>
-            <GoalGraph goals={graphGoals} statusMeta={statusMeta} projectMap={projectMap} onOpenGoal={openGoal} />
-          </ReactFlowProvider>
         ) : (
           <section className="kanban-board" aria-label="Goal board">
             {STATES.map((state) => {
@@ -518,6 +514,20 @@ export default function PlanningBoard({ navigation }) {
           </section>
         )}
       </div>
+
+      <Dialog open={graphOpen} className="graph-dialog-overlay">
+        <DialogContent className="graph-dialog">
+          <DialogHeader className="graph-dialog-header">
+            <div><span className="section-kicker">Dependency map</span><DialogTitle>Goal dependency graph</DialogTitle><p>Prerequisite roots appear at the top; goals at the same level share a row.</p></div>
+            <button type="button" className="dialog-close" onClick={() => setGraphOpen(false)} aria-label="Close dependency graph"><X /></button>
+          </DialogHeader>
+          <DialogBody className="graph-dialog-body">
+            <ReactFlowProvider>
+              <GoalGraph goals={graphGoals} statusMeta={statusMeta} projectMap={projectMap} onOpenGoal={(goal) => { setGraphOpen(false); openGoal(goal); }} />
+            </ReactFlowProvider>
+          </DialogBody>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={projectDialog}>
         <DialogContent className="planning-dialog">
