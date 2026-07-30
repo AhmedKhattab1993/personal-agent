@@ -4,6 +4,15 @@ export function isDependencyOptionVisible(goal) {
   return !HIDDEN_DEPENDENCY_OPTION_STATES.has(goal.status);
 }
 
+export function prioritizeSameProject(goals, projectId) {
+  const sameProject = [];
+  const otherProjects = [];
+  for (const goal of goals) {
+    (goal.projectId === projectId ? sameProject : otherProjects).push(goal);
+  }
+  return [...sameProject, ...otherProjects];
+}
+
 export function wouldCreateCycle(goals, goalId, candidateId) {
   if (!goalId) return false;
   if (goalId === candidateId) return true;

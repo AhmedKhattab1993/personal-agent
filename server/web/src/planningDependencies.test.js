@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { isDependencyOptionVisible, wouldCreateCycle } from './planningDependencies.js';
+import { isDependencyOptionVisible, prioritizeSameProject, wouldCreateCycle } from './planningDependencies.js';
 
 const goals = [
   { id: '1', dependsOn: [] },
@@ -25,4 +25,19 @@ test('hides done and archived goals from dependency options', () => {
   assert.equal(isDependencyOptionVisible({ status: 'in_progress' }), true);
   assert.equal(isDependencyOptionVisible({ status: 'done' }), false);
   assert.equal(isDependencyOptionVisible({ status: 'archived' }), false);
+});
+
+test('lists same-project dependency options first without changing group order', () => {
+  const options = [
+    { id: '1', projectId: 'other' },
+    { id: '2', projectId: 'current' },
+    { id: '3', projectId: 'other' },
+    { id: '4', projectId: 'current' },
+  ];
+
+  assert.deepEqual(
+    prioritizeSameProject(options, 'current').map((goal) => goal.id),
+    ['2', '4', '1', '3'],
+  );
+  assert.deepEqual(options.map((goal) => goal.id), ['1', '2', '3', '4']);
 });
