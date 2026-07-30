@@ -1,3 +1,9 @@
+const HIDDEN_DEPENDENCY_OPTION_STATES = new Set(['done', 'archived']);
+
+export function isDependencyOptionVisible(goal) {
+  return !HIDDEN_DEPENDENCY_OPTION_STATES.has(goal.status);
+}
+
 export function wouldCreateCycle(goals, goalId, candidateId) {
   if (!goalId) return false;
   if (goalId === candidateId) return true;

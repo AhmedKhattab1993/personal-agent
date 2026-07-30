@@ -10,7 +10,7 @@ import dagre from '@dagrejs/dagre';
 import '@xyflow/react/dist/style.css';
 
 import { Badge, Button, Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle, Input, Select } from './components/ui.jsx';
-import { wouldCreateCycle } from './planningDependencies.js';
+import { isDependencyOptionVisible, wouldCreateCycle } from './planningDependencies.js';
 
 const STATES = [
   { id: 'backlog', label: 'Backlog', icon: Archive, color: '#78909d' },
@@ -556,7 +556,7 @@ export default function PlanningBoard({ navigation }) {
                     })}
                     {(() => {
                       const selected = new Set(goalForm.dependsOn ?? []);
-                      const candidates = board.goals.filter((goal) => goal.id !== editingGoal?.id && !selected.has(goal.id) && !wouldCreateCycle(board.goals, editingGoal?.id, goal.id));
+                      const candidates = board.goals.filter((goal) => isDependencyOptionVisible(goal) && goal.id !== editingGoal?.id && !selected.has(goal.id) && !wouldCreateCycle(board.goals, editingGoal?.id, goal.id));
                       if (!candidates.length) return <span className="dependency-empty">{(goalForm.dependsOn ?? []).length ? 'No more goals available' : 'No other goals yet'}</span>;
                       return <Select value="" onChange={(event) => { const id = event.target.value; if (id) setGoalForm((current) => ({ ...current, dependsOn: [...(current.dependsOn ?? []), id] })); event.target.value = ''; }}>
                         <option value="">+ Add a dependency…</option>

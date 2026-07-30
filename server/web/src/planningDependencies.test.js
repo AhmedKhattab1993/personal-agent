@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { wouldCreateCycle } from './planningDependencies.js';
+import { isDependencyOptionVisible, wouldCreateCycle } from './planningDependencies.js';
 
 const goals = [
   { id: '1', dependsOn: [] },
@@ -18,4 +18,11 @@ test('rejects self and transitive dependency cycles for an existing goal', () =>
   assert.equal(wouldCreateCycle(goals, '1', '1'), true);
   assert.equal(wouldCreateCycle(goals, '1', '3'), true);
   assert.equal(wouldCreateCycle(goals, '3', '1'), false);
+});
+
+test('hides done and archived goals from dependency options', () => {
+  assert.equal(isDependencyOptionVisible({ status: 'backlog' }), true);
+  assert.equal(isDependencyOptionVisible({ status: 'in_progress' }), true);
+  assert.equal(isDependencyOptionVisible({ status: 'done' }), false);
+  assert.equal(isDependencyOptionVisible({ status: 'archived' }), false);
 });
