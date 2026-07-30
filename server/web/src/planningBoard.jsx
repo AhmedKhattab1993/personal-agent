@@ -113,10 +113,10 @@ function reorderGoals(goals, goalId, status, position) {
 const GRAPH_NODE_WIDTH = 232;
 const GRAPH_NODE_HEIGHT = 96;
 
-// Lay out goals as a left-to-right DAG using dagre. Edges run from prerequisite → dependent goal.
+// Lay out goals as a top-to-bottom DAG. Prerequisite roots appear first and equal ranks share a row.
 function layoutDependencyGraph(goals, statusMeta, projectMap) {
   const graph = new dagre.graphlib.Graph();
-  graph.setGraph({ rankdir: 'LR', nodesep: 28, ranksep: 90, marginx: 24, marginy: 24 });
+  graph.setGraph({ rankdir: 'TB', nodesep: 28, ranksep: 90, marginx: 24, marginy: 24 });
   graph.setDefaultEdgeLabel(() => ({}));
   const visible = new Set(goals.map((goal) => goal.id));
   for (const goal of goals) {
@@ -154,7 +154,7 @@ function GoalNode({ data }) {
   const AssigneeIcon = goal.assignee === 'human' ? User : Bot;
   return (
     <div className="goal-node" style={{ '--state-color': stateColor }}>
-      <Handle type="target" position={Position.Left} />
+      <Handle type="target" position={Position.Top} />
       <div className="goal-node-top">
         <span className={`priority-chip priority-${goal.priority}`}><i />{priority.label}</span>
         <span className={`assignee-chip assignee-${goal.assignee}`}><AssigneeIcon /></span>
@@ -165,7 +165,7 @@ function GoalNode({ data }) {
         <span className="project-chip" style={{ '--project-color': project?.color ?? '#fff' }}><i>{initials(project?.name ?? '?')}</i>{project?.name ?? 'Unknown'}</span>
         {goal.dependsOn?.length > 0 && <span className="depends-chip"><Link2 /> {goal.dependsOn.length}</span>}
       </footer>
-      <Handle type="source" position={Position.Right} />
+      <Handle type="source" position={Position.Bottom} />
     </div>
   );
 }
