@@ -1,10 +1,13 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertCircle, Archive, ArrowRight, Bot, Check, CheckCircle2, Circle, Clipboard,
   Clock3, Code2, Copy, Folder, FolderGit2, GripVertical, LayoutDashboard,
-  FileSearch, FolderOpen, PauseCircle, Pencil, Plus, Search, Send, ShieldCheck, Sparkles,
+  FileSearch, FolderOpen, Link2, PauseCircle, Pencil, Plus, Search, Send, Share2, ShieldCheck, Sparkles,
   Target, Trash2, User, X, Zap,
 } from 'lucide-react';
+import { ReactFlow, ReactFlowProvider, Background, Controls, MiniMap, Handle, Position } from '@xyflow/react';
+import dagre from '@dagrejs/dagre';
+import '@xyflow/react/dist/style.css';
 
 import { Badge, Button, Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle, Input, Select } from './components/ui.jsx';
 
@@ -30,7 +33,7 @@ const ASSIGNEES = [
 ];
 
 const EMPTY_PROJECT = { name: '', description: '', directory: '', color: '#5ad9ca', hiddenFromAll: false };
-const EMPTY_GOAL = { projectId: '', title: '', outcome: '', completionCriteria: '', nonGoals: '', notes: '', priority: 'no_priority', status: 'backlog', assignee: 'human' };
+const EMPTY_GOAL = { projectId: '', title: '', outcome: '', completionCriteria: '', nonGoals: '', notes: '', priority: 'no_priority', status: 'backlog', assignee: 'human', dependsOn: [] };
 const GOAL_FIELDS = ['title', 'outcome', 'completionCriteria', 'nonGoals', 'priority', 'status', 'assignee'];
 
 function assistantWelcome(project) {
@@ -106,6 +109,114 @@ function reorderGoals(goals, goalId, status, position) {
   return goals.map((goal) => updates.has(goal.id) ? { ...goal, ...updates.get(goal.id) } : goal);
 }
 
+// Returns true when adding an edge from `goalId` -> `candidateId` (candidate becomes a prerequisite)
+// would create a dependency cycle. A cycle exists when goalId is reachable from candidateId
+// following existing dependsOn edges.
+function wouldCreateCycle(goals, goalId, candidateId) {
+  if (!goalId || goalId === candidateId) return true;
+  const adjacency = new Map(goals.map((goal) => [goal.id, goal.dependsOn ?? []]));
+  const stack = [candidateId];
+  const visited = new Set();
+  while (stack.length) {
+    const current = stack.pop();
+    if (current === goalId) return true;
+    if (visited.has(current)) continue;
+    visited.add(current);
+    for (const next of adjacency.get(current) ?? []) stack.push(next);
+  }
+  return false;
+}
+
+const GRAPH_NODE_WIDTH = 232;
+const GRAPH_NODE_HEIGHT = 96;
+
+// Lay out goals as a left-to-right DAG using dagre. Edges run from prerequisite → dependent goal.
+function layoutDependencyGraph(goals, statusMeta, projectMap) {
+  const graph = new dagre.graphlib.Graph();
+  graph.setGraph({ rankdir: 'LR', nodesep: 28, ranksep: 90, marginx: 24, marginy: 24 });
+  graph.setDefaultEdgeLabel(() => ({}));
+  const visible = new Set(goals.map((goal) => goal.id));
+  for (const goal of goals) {
+    graph.setNode(goal.id, { width: GRAPH_NODE_WIDTH, height: GRAPH_NODE_HEIGHT });
+  }
+  for (const goal of goals) {
+    for (const depId of goal.dependsOn ?? []) {
+      if (visible.has(depId)) graph.setEdge(depId, goal.id);
+    }
+  }
+  dagre.layout(graph);
+
+  const nodes = goals.map((goal) => {
+    const position = graph.node(goal.id);
+    const state = statusMeta(goal.status);
+    return {
+      id: goal.id,
+      type: 'goal',
+      position: { x: position.x - GRAPH_NODE_WIDTH / 2, y: position.y - GRAPH_NODE_HEIGHT / 2 },
+      data: { goal, stateColor: state?.color, project: projectMap[goal.projectId] },
+    };
+  });
+  const edges = [];
+  for (const goal of goals) {
+    for (const depId of goal.dependsOn ?? []) {
+      if (visible.has(depId)) edges.push({ id: `${depId}->${goal.id}`, source: depId, target: goal.id, type: 'smoothstep' });
+    }
+  }
+  return { nodes, edges };
+}
+
+function GoalNode({ data }) {
+  const { goal, stateColor, project } = data;
+  const priority = PRIORITIES.find((item) => item.id === goal.priority) ?? PRIORITIES[0];
+  const AssigneeIcon = goal.assignee === 'human' ? User : Bot;
+  return (
+    <div className="goal-node" style={{ '--state-color': stateColor }}>
+      <Handle type="target" position={Position.Left} />
+      <div className="goal-node-top">
+        <span className={`priority-chip priority-${goal.priority}`}><i />{priority.label}</span>
+        <span className={`assignee-chip assignee-${goal.assignee}`}><AssigneeIcon /></span>
+        <code className="goal-id">#{goal.id}</code>
+      </div>
+      <h3>{goal.title}</h3>
+      <footer>
+        <span className="project-chip" style={{ '--project-color': project?.color ?? '#fff' }}><i>{initials(project?.name ?? '?')}</i>{project?.name ?? 'Unknown'}</span>
+        {goal.dependsOn?.length > 0 && <span className="depends-chip"><Link2 /> {goal.dependsOn.length}</span>}
+      </footer>
+      <Handle type="source" position={Position.Right} />
+    </div>
+  );
+}
+
+const nodeTypes = { goal: GoalNode };
+
+function GoalGraph({ goals, statusMeta, projectMap, onOpenGoal }) {
+  const { nodes, edges } = useMemo(() => layoutDependencyGraph(goals, statusMeta, projectMap), [goals, statusMeta, projectMap]);
+  if (!goals.length) {
+    return <div className="graph-empty"><Target /><span>No goals to lay out yet.</span></div>;
+  }
+  return (
+    <div className="graph-board" aria-label="Goal dependency graph">
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        nodeTypes={nodeTypes}
+        onNodeClick={(_event, node) => onOpenGoal?.(node.data.goal)}
+        nodesDraggable={false}
+        nodesConnectable={false}
+        elementsSelectable={false}
+        proOptions={{ hideAttribution: true }}
+        fitView
+        fitViewOptions={{ padding: 0.18 }}
+        minZoom={0.2}
+      >
+        <Background gap={18} size={1.4} color="#1f1f1f" />
+        <Controls showInteractive={false} />
+        <MiniMap pannable zoomable nodeColor={() => '#161616'} maskColor="rgba(0,0,0,0.7)" />
+      </ReactFlow>
+    </div>
+  );
+}
+
 export default function PlanningBoard({ navigation }) {
   const [board, setBoard] = useState({ projects: [], goals: [] });
   const [loading, setLoading] = useState(true);
@@ -122,6 +233,7 @@ export default function PlanningBoard({ navigation }) {
   const [draggedProject, setDraggedProject] = useState(null);
   const [draggedGoal, setDraggedGoal] = useState(null);
   const [goalDropTarget, setGoalDropTarget] = useState(null);
+  const [boardView, setBoardView] = useState('kanban');
   const [copiedGoal, setCopiedGoal] = useState(null);
   const [assistantMessages, setAssistantMessages] = useState([]);
   const [assistantInput, setAssistantInput] = useState('');
@@ -151,6 +263,14 @@ export default function PlanningBoard({ navigation }) {
   }), [board.goals, projectFilter, query, projectMap, hiddenProjectIds]);
 
   const counts = useMemo(() => Object.fromEntries(STATES.map((state) => [state.id, visibleGoals.filter((goal) => goal.status === state.id).length])), [visibleGoals]);
+  const statusMeta = useCallback((status) => STATES.find((state) => state.id === status), []);
+  // The graph view spans every project (the whole point is cross-project chains),
+  // refined only by the search box. Archived/canceled goals are excluded.
+  const graphGoals = useMemo(() => board.goals.filter((goal) => {
+    if (['archived', 'canceled'].includes(goal.status)) return false;
+    if (!query.trim()) return true;
+    return [goal.id, goal.title, goal.outcome, goal.completionCriteria, goal.nonGoals, projectMap[goal.projectId]?.name].join(' ').toLowerCase().includes(query.trim().toLowerCase());
+  }), [board.goals, query, projectMap]);
   const summaryGoals = useMemo(() => board.goals.filter((goal) => !hiddenProjectIds.has(goal.projectId)), [board.goals, hiddenProjectIds]);
   const activeCount = summaryGoals.filter((goal) => goal.status === 'in_progress').length;
   const readyCount = summaryGoals.filter((goal) => goal.status === 'planned').length;
@@ -349,11 +469,18 @@ export default function PlanningBoard({ navigation }) {
             ><GripVertical className="project-drag-handle" /><span className="project-avatar" style={{ '--project-color': project.color }}>{initials(project.name)}</span><span className="project-label"><strong>{project.name}</strong><small>{board.goals.filter((goal) => goal.projectId === project.id && !['done', 'archived', 'canceled'].includes(goal.status)).length} open goals</small></span><span className="project-tab-actions"><button type="button" className="project-tab-edit" title={`Edit ${project.name}`} aria-label={`Edit ${project.name}`} onClick={(event) => { event.stopPropagation(); openProject(project); }}><Pencil /></button><button type="button" className="project-tab-delete" title={`Delete ${project.name}`} aria-label={`Delete ${project.name}`} onClick={(event) => { event.stopPropagation(); deleteProject(project); }}><Trash2 /></button></span></div>)}
             <button className="add-project" onClick={() => openProject()}><Plus /> Link project</button>
           </div>
-          <div className="board-controls"><div className="search-wrap"><Search /><Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search outcomes or criteria…" />{query && <button onClick={() => setQuery('')}><X /></button>}</div><span><Sparkles /> {visibleGoals.length} goals in view</span></div>
+          <div className="board-controls"><div className="search-wrap"><Search /><Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search outcomes or criteria…" />{query && <button onClick={() => setQuery('')}><X /></button>}</div><div className="view-toggle" role="group" aria-label="Board view">
+            <button type="button" className={boardView === 'kanban' ? 'active' : ''} onClick={() => setBoardView('kanban')} title="Board view"><LayoutDashboard /> Board</button>
+            <button type="button" className={boardView === 'graph' ? 'active' : ''} onClick={() => setBoardView('graph')} title="Dependency graph"><Share2 /> Graph</button>
+          </div><span><Sparkles /> {boardView === 'graph' ? graphGoals.length : visibleGoals.length} goals in view</span></div>
         </section>
 
         {loading ? <div className="loading-state"><Clock3 /><span>Loading the local plan…</span></div> : board.projects.length === 0 ? (
           <section className="planning-empty"><div className="empty-orbit"><Folder /></div><span className="section-kicker">Start with repository truth</span><h2>Link your first project directory</h2><p>Every goal belongs to a real folder so an agent knows exactly where to begin—without baking the implementation into the plan.</p><Button onClick={() => openProject()}><Plus /> Link project</Button></section>
+        ) : boardView === 'graph' ? (
+          <ReactFlowProvider>
+            <GoalGraph goals={graphGoals} statusMeta={statusMeta} projectMap={projectMap} onOpenGoal={openGoal} />
+          </ReactFlowProvider>
         ) : (
           <section className="kanban-board" aria-label="Goal board">
             {STATES.map((state) => {
@@ -392,7 +519,7 @@ export default function PlanningBoard({ navigation }) {
                     >
                       <div className="goal-card-top"><GripVertical className="drag-handle" /><span className={`priority-chip priority-${goal.priority}`} title={`Priority: ${priority.label}`}><i />{priority.label}</span><span className={`assignee-chip assignee-${goal.assignee}`} title={`Assignee: ${assignee.label}`}><AssigneeIcon />{assignee.label}</span><code className="goal-id" title={`Goal ID: ${goal.id}`}>#{goal.id}</code><button onClick={(event) => { event.stopPropagation(); copyBrief(goal); }} title="Copy agent brief" aria-label={`Copy agent brief for ${goal.title}`}>{copiedGoal === goal.id ? <Check /> : <Copy />}</button><button onClick={(event) => { event.stopPropagation(); moveGoal(goal, 'archived', 0); }} title="Archive goal" aria-label={`Archive ${goal.title}`}><Archive /></button></div>
                       <h3>{goal.title}</h3>
-                      <footer><span className="project-chip" style={{ '--project-color': project.color }}><i>{initials(project.name)}</i>{project.name}</span><time>{relativeDate(goal.updatedAt)}</time></footer>
+                      <footer><span className="project-chip" style={{ '--project-color': project.color }}><i>{initials(project.name)}</i>{project.name}</span>{goal.dependsOn?.length > 0 && <span className="depends-chip" title={`Depends on ${goal.dependsOn.length} ${goal.dependsOn.length === 1 ? 'goal' : 'goals'}`}><Link2 /> {goal.dependsOn.length}</span>}<time>{relativeDate(goal.updatedAt)}</time></footer>
                     </article>;
                   })}
                   {goals.length === 0 && <button className="column-empty" onClick={() => openNewGoal(state.id)}><Plus /><span>Add a goal</span></button>}
@@ -431,6 +558,30 @@ export default function PlanningBoard({ navigation }) {
                 <Field label="Out of scope / ignore" hint="Protect the goal from scope drift. Avoid prescribing how to implement it."><textarea value={goalForm.nonGoals} onChange={(event) => setGoalForm({ ...goalForm, nonGoals: event.target.value })} placeholder="No unrelated refactors; no publishing or external changes." /></Field>
                 <Field label="Priority"><Select value={goalForm.priority} onChange={(event) => setGoalForm({ ...goalForm, priority: event.target.value })}>{PRIORITIES.map((priority) => <option key={priority.id} value={priority.id}>{priority.label}</option>)}</Select></Field>
                 <Field label="Assignee"><Select value={goalForm.assignee} onChange={(event) => setGoalForm({ ...goalForm, assignee: event.target.value })}>{ASSIGNEES.map((assignee) => <option key={assignee.id} value={assignee.id}>{assignee.label}</option>)}</Select></Field>
+                <Field label="Depends on" hint="Goals that must finish first — same or other projects. Open the Graph view to see the chain.">
+                  <div className="dependency-picker">
+                    {(goalForm.dependsOn ?? []).map((depId) => {
+                      const dep = board.goals.find((goal) => goal.id === depId);
+                      if (!dep) return null;
+                      const depProject = projectMap[dep.projectId];
+                      return <span key={depId} className="dependency-chip" style={{ '--project-color': depProject?.color }}>
+                        <i>{initials(depProject?.name ?? '?')}</i>
+                        <span className="dependency-chip-label">{dep.title}</span>
+                        <code>#{dep.id}</code>
+                        <button type="button" aria-label={`Remove ${dep.title} as a dependency`} onClick={() => setGoalForm((current) => ({ ...current, dependsOn: (current.dependsOn ?? []).filter((id) => id !== depId) }))}><X /></button>
+                      </span>;
+                    })}
+                    {(() => {
+                      const selected = new Set(goalForm.dependsOn ?? []);
+                      const candidates = board.goals.filter((goal) => goal.id !== editingGoal?.id && !selected.has(goal.id) && !wouldCreateCycle(board.goals, editingGoal?.id, goal.id));
+                      if (!candidates.length) return <span className="dependency-empty">{(goalForm.dependsOn ?? []).length ? 'No more goals available' : 'No other goals yet'}</span>;
+                      return <Select value="" onChange={(event) => { const id = event.target.value; if (id) setGoalForm((current) => ({ ...current, dependsOn: [...(current.dependsOn ?? []), id] })); event.target.value = ''; }}>
+                        <option value="">+ Add a dependency…</option>
+                        {candidates.map((goal) => <option key={goal.id} value={goal.id}>{projectMap[goal.projectId]?.name ?? 'Project'} · {goal.title} (#{goal.id})</option>)}
+                      </Select>;
+                    })()}
+                  </div>
+                </Field>
                 {editingGoal && <div className="agent-brief-preview"><div><Code2 /><span><strong>Agent-ready brief</strong><small>Directory + outcome + done + scope boundary</small></span></div><Button type="button" variant="outline" size="sm" onClick={() => copyBrief(editingGoal)}><Clipboard /> {copiedGoal === editingGoal.id ? 'Copied' : 'Copy brief'}</Button></div>}
                 {editingGoal && <section className="personal-notes"><div><User /><span><strong>My notes</strong><small>Private working notes — never copied or sent to the agent.</small></span></div><textarea value={goalForm.notes} onChange={(event) => setGoalForm({ ...goalForm, notes: event.target.value })} placeholder="Write reminders, thoughts, or follow-up details for yourself…" aria-label="My notes" /></section>}
               </section>

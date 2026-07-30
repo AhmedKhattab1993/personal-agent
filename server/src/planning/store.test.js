@@ -125,6 +125,92 @@ test('defaults assignee to human and rejects unknown values', async (context) =>
   await assert.rejects(updatePlanningGoal(created.goal.id, { assignee: 'bot' }, { filePath }), /Invalid assignee/);
 });
 
+async function seedProject(directory) {
+  const projectDirectory = join(directory, 'project');
+  await mkdir(projectDirectory, { recursive: true });
+  const filePath = join(directory, 'planning.json');
+  const { project } = await createPlanningProject({ name: 'P', directory: projectDirectory }, { filePath });
+  return { filePath, project };
+}
+
+test('persists and updates goal dependencies across projects', async (context) => {
+  const directory = await mkdtemp(join(tmpdir(), 'planning-board-'));
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  const { filePath, project } = await seedProject(directory);
+
+  const g1 = (await createPlanningGoal({ projectId: project.id, title: 'First' }, { filePath })).goal;
+  const g2 = (await createPlanningGoal({ projectId: project.id, title: 'Second', dependsOn: [g1.id] }, { filePath })).goal;
+  assert.deepEqual(g2.dependsOn, [g1.id]);
+
+  const g3 = (await createPlanningGoal({ projectId: project.id, title: 'Third', dependsOn: [g2.id, g1.id] }, { filePath })).goal;
+  assert.deepEqual(g3.dependsOn, [g2.id, g1.id]);
+
+  // Omitting dependsOn on update preserves existing dependencies (mirrors other fields).
+  const preserved = await updatePlanningGoal(g3.id, { title: 'Third (renamed)' }, { filePath });
+  assert.deepEqual(preserved.goal.dependsOn, [g2.id, g1.id]);
+
+  // Dedupes repeats and unknown ids are rejected (see dedicated test).
+  const cleared = await updatePlanningGoal(g3.id, { dependsOn: [g1.id, g1.id] }, { filePath });
+  assert.deepEqual(cleared.goal.dependsOn, [g1.id]);
+  await assert.rejects(updatePlanningGoal(g3.id, { dependsOn: ['zz'] }, { filePath }), /Unknown dependency/);
+});
+
+test('rejects unknown, self, and cyclic dependencies', async (context) => {
+  const directory = await mkdtemp(join(tmpdir(), 'planning-board-'));
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  const { filePath, project } = await seedProject(directory);
+
+  const g1 = (await createPlanningGoal({ projectId: project.id, title: 'A' }, { filePath })).goal;
+  const g2 = (await createPlanningGoal({ projectId: project.id, title: 'B', dependsOn: [g1.id] }, { filePath })).goal;
+
+  await assert.rejects(createPlanningGoal({ projectId: project.id, title: 'X', dependsOn: ['nope'] }, { filePath }), /Unknown dependency/);
+  await assert.rejects(updatePlanningGoal(g1.id, { dependsOn: [g1.id] }, { filePath }), /depend on itself/);
+
+  // g1 depends on g2; g2 depends on g1 ⇒ cycle.
+  await assert.rejects(updatePlanningGoal(g1.id, { dependsOn: [g2.id] }, { filePath }), /cycle/);
+});
+
+test('rejects transitive cyclic dependencies', async (context) => {
+  const directory = await mkdtemp(join(tmpdir(), 'planning-board-'));
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  const { filePath, project } = await seedProject(directory);
+
+  const g1 = (await createPlanningGoal({ projectId: project.id, title: 'A' }, { filePath })).goal;
+  const g2 = (await createPlanningGoal({ projectId: project.id, title: 'B', dependsOn: [g1.id] }, { filePath })).goal;
+  const g3 = (await createPlanningGoal({ projectId: project.id, title: 'C', dependsOn: [g2.id] }, { filePath })).goal;
+
+  // g1 -> g2 -> g3 already exists; making g1 depend on g3 closes a transitive cycle.
+  await assert.rejects(updatePlanningGoal(g1.id, { dependsOn: [g3.id] }, { filePath }), /cycle/);
+});
+
+test('deleting a goal prunes it from other goals dependencies', async (context) => {
+  const directory = await mkdtemp(join(tmpdir(), 'planning-board-'));
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  const { filePath, project } = await seedProject(directory);
+
+  const g1 = (await createPlanningGoal({ projectId: project.id, title: 'A' }, { filePath })).goal;
+  const g2 = (await createPlanningGoal({ projectId: project.id, title: 'B', dependsOn: [g1.id] }, { filePath })).goal;
+
+  await deletePlanningGoal(g1.id, { filePath });
+  const reloaded = await loadPlanningBoard({ filePath });
+  const remaining = reloaded.goals.find((goal) => goal.id === g2.id);
+  assert.deepEqual(remaining.dependsOn, []);
+});
+
+test('loads legacy goals with empty dependencies', async (context) => {
+  const directory = await mkdtemp(join(tmpdir(), 'planning-board-'));
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  const { filePath, project } = await seedProject(directory);
+
+  // Simulate a board written before dependencies existed.
+  const board = await loadPlanningBoard({ filePath });
+  board.goals = [{ id: '9', projectId: project.id, title: 'Legacy', status: 'backlog', priority: 'no_priority', position: 0 }];
+  await writeFile(filePath, JSON.stringify(board), 'utf8');
+
+  const reloaded = await loadPlanningBoard({ filePath });
+  assert.deepEqual(reloaded.goals[0].dependsOn, []);
+});
+
 test('defaults hiddenFromAll to false and toggles via update', async (context) => {
   const directory = await mkdtemp(join(tmpdir(), 'planning-board-'));
   context.after(() => rm(directory, { recursive: true, force: true }));

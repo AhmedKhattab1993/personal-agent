@@ -19,7 +19,9 @@
     "web:build": "vite build --config web/vite.config.js"
   },
   "dependencies": {
+    "@dagrejs/dagre": "^3.0.0",
     "@vitejs/plugin-react": "^6.0.3",
+    "@xyflow/react": "^12.11.2",
     "lucide-react": "^1.22.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",

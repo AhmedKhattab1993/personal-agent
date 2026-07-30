@@ -659,6 +659,98 @@ svg { width: 1rem; height: 1rem; stroke-width: 2; }
 }
 .column-empty:hover { border-color: var(--border-hover); color: var(--fg); }
 
+/* Dependency chips + graph */
+.depends-chip {
+  display: inline-flex; align-items: center; gap: 3px; margin-left: auto;
+  padding: 1px 6px; border: 1px solid var(--border-strong); border-radius: 999px;
+  color: var(--fg-secondary); font-size: .625rem; background: var(--surface);
+}
+.depends-chip svg { width: 10px; height: 10px; color: var(--fg-tertiary); }
+
+.dependency-picker { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.dependency-picker .ui-input { min-width: 200px; }
+.dependency-chip {
+  --project-color: #fff; display: inline-flex; align-items: center; gap: 6px; max-width: 100%;
+  padding: 3px 4px 3px 7px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+  color: var(--fg-secondary); font-size: .75rem; background: var(--bg-elevated);
+}
+.dependency-chip i {
+  display: grid; place-items: center; width: 18px; height: 18px; flex: 0 0 auto;
+  border-radius: 4px; color: var(--project-color); font-size: .625rem; font-style: normal;
+  font-weight: 700; background: color-mix(in srgb, var(--project-color) 12%, transparent);
+}
+.dependency-chip-label { overflow: hidden; max-width: 180px; color: var(--fg);
+  font-size: .75rem; text-overflow: ellipsis; white-space: nowrap; }
+.dependency-chip code { color: var(--fg-tertiary); font: 500 .6875rem/1 ui-monospace,SFMono-Regular,Menlo,monospace; }
+.dependency-chip button {
+  display: grid; place-items: center; width: 18px; height: 18px; border: 0; border-radius: 4px;
+  color: var(--fg-tertiary); background: transparent;
+}
+.dependency-chip button:hover { color: var(--danger); background: var(--surface); }
+.dependency-chip button svg { width: 11px; height: 11px; }
+.dependency-empty { color: var(--fg-tertiary); font-size: .75rem; }
+
+.view-toggle {
+  display: inline-flex; gap: 2px; flex: 0 0 auto; padding: 3px;
+  border: 1px solid var(--border-strong); border-radius: var(--radius); background: var(--bg);
+}
+.view-toggle button {
+  display: inline-flex; align-items: center; gap: 5px; height: 1.75rem; padding: 0 .625rem;
+  border: 0; border-radius: var(--radius-sm); color: var(--fg-secondary);
+  font-size: .75rem; font-weight: 500; background: transparent; transition: .15s ease;
+}
+.view-toggle button svg { width: 13px; height: 13px; }
+.view-toggle button:hover { color: var(--fg); }
+.view-toggle button.active { color: #000; background: #fff; }
+
+.graph-board {
+  height: clamp(440px, 68vh, 760px); overflow: hidden;
+  border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--bg-elevated);
+}
+.graph-board .react-flow__attribution { display: none; }
+.graph-board .react-flow__controls { box-shadow: 0 0 0 1px var(--border-strong); border-radius: var(--radius-sm); overflow: hidden; }
+.graph-board .react-flow__controls-button {
+  width: 26px; height: 26px; border: 0; border-bottom: 1px solid var(--border);
+  color: var(--fg); background: var(--bg-elevated);
+}
+.graph-board .react-flow__controls-button:hover { background: var(--surface); }
+.graph-board .react-flow__controls-button svg { fill: var(--fg-secondary); width: 13px; height: 13px; }
+.graph-board .react-flow__minimap {
+  border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+  background: var(--bg); overflow: hidden;
+}
+.graph-board .react-flow__edge-path { stroke: var(--border-hover); stroke-width: 1.5px; }
+.graph-board .react-flow__handle {
+  width: 6px; height: 6px; border: 0; border-radius: 50%; background: var(--fg-quaternary);
+}
+.graph-empty {
+  display: grid; place-items: center; gap: 10px; min-height: 360px;
+  border: 1px dashed var(--border-strong); border-radius: var(--radius-lg);
+  color: var(--fg-tertiary); font-size: .8125rem; background: var(--bg-elevated);
+}
+.graph-empty svg { width: 22px; height: 22px; color: var(--fg-quaternary); }
+
+.goal-node {
+  width: 232px; padding: 10px 12px; border: 1px solid var(--border-hover);
+  border-top: 2px solid var(--state-color, var(--border-hover));
+  border-radius: var(--radius); color: var(--fg); background: var(--bg); cursor: pointer;
+  transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+}
+.goal-node:hover { border-color: #fff; box-shadow: 0 8px 24px rgba(0,0,0,.45); transform: translateY(-1px); }
+.goal-node-top { display: flex; align-items: center; gap: 5px; }
+.goal-node-top .priority-chip { margin-left: 0; }
+.goal-node-top .assignee-chip { margin-left: 0; }
+.goal-node-top .goal-id { margin-left: auto; }
+.goal-node h3 {
+  display: -webkit-box; margin: 6px 0; overflow: hidden; color: var(--fg);
+  font-size: .8125rem; font-weight: 600; line-height: 1.35; letter-spacing: -.01em;
+  -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+}
+.goal-node footer { display: flex; align-items: center; gap: 6px; }
+.goal-node .project-chip { font-size: .625rem; }
+.goal-node .depends-chip { margin-left: 0; }
+.goal-node .depends-chip svg { width: 9px; height: 9px; }
+
 /* Planning empty state */
 .planning-empty {
   display: flex; align-items: center; justify-content: center; min-height: 440px;

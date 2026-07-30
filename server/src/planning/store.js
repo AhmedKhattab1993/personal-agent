@@ -91,7 +91,10 @@ export async function loadPlanningBoard({ filePath = DEFAULT_PLANNING_FILE } = {
       projects: Array.isArray(board.projects)
         ? board.projects.map((project) => ({ ...project, directory: expandDirectory(project.directory) }))
         : [],
-      goals: normalizedGoals.goals,
+      goals: normalizedGoals.goals.map((goal) => ({
+        ...goal,
+        dependsOn: Array.isArray(goal.dependsOn) ? goal.dependsOn.filter((id) => typeof id === 'string' && id.trim()) : [],
+      })),
     };
   } catch (error) {
     if (error.code === 'ENOENT') return emptyBoard();
@@ -183,6 +186,42 @@ export async function deletePlanningProject(projectId, options = {}) {
   return { board: await savePlanningBoard(board, options), project, archivedGoalCount };
 }
 
+function normalizeDependsOn(input, board, current = {}) {
+  const goalId = current.id;
+  const known = new Set(board.goals.filter((goal) => goal.id !== goalId).map((goal) => goal.id));
+  const raw = Array.isArray(input.dependsOn) ? input.dependsOn : (input.dependsOn === undefined ? (current.dependsOn ?? []) : []);
+  const next = [];
+  for (const value of raw) {
+    const id = typeof value === 'string' ? value.trim() : '';
+    if (!id || next.includes(id)) continue;
+    if (id === goalId) throw new Error('A goal cannot depend on itself');
+    if (!known.has(id)) throw new Error(`Unknown dependency: ${id}`);
+    next.push(id);
+  }
+  return next;
+}
+
+// Returns true when adding `goal.dependsOn` edges from `goalId` would create a cycle.
+// `dependencies` is the proposed dependsOn list for the goal being validated.
+function createsCycle(board, goalId, dependencies) {
+  const adjacency = new Map();
+  for (const goal of board.goals) {
+    adjacency.set(goal.id, Array.isArray(goal.dependsOn) ? goal.dependsOn.filter((id) => board.goals.some((other) => other.id === id)) : []);
+  }
+  adjacency.set(goalId, dependencies.slice());
+  // A cycle exists if, starting from any direct prerequisite, we can return to goalId.
+  const stack = [...dependencies];
+  const visited = new Set();
+  while (stack.length) {
+    const current = stack.pop();
+    if (current === goalId) return true;
+    if (visited.has(current)) continue;
+    visited.add(current);
+    for (const next of adjacency.get(current) ?? []) stack.push(next);
+  }
+  return false;
+}
+
 function validateGoalInput(input, board, current = {}) {
   const projectId = input.projectId ?? current.projectId;
   if (!board.projects.some((project) => project.id === projectId)) throw new Error('Choose a valid project');
@@ -192,6 +231,8 @@ function validateGoalInput(input, board, current = {}) {
   if (!PLANNING_PRIORITIES.includes(priority)) throw new Error('Invalid priority');
   const assignee = input.assignee ?? current.assignee ?? 'human';
   if (!PLANNING_ASSIGNEES.includes(assignee)) throw new Error('Invalid assignee');
+  const dependsOn = normalizeDependsOn(input, board, current);
+  if (current.id && createsCycle(board, current.id, dependsOn)) throw new Error('That dependency would create a cycle');
   return {
     projectId,
     status,
@@ -202,6 +243,7 @@ function validateGoalInput(input, board, current = {}) {
     completionCriteria: input.completionCriteria === undefined ? (current.completionCriteria ?? '') : cleanText(input.completionCriteria),
     nonGoals: input.nonGoals === undefined ? (current.nonGoals ?? '') : cleanText(input.nonGoals),
     notes: input.notes === undefined ? (current.notes ?? '') : cleanText(input.notes),
+    dependsOn,
   };
 }
 
@@ -267,5 +309,7 @@ export async function deletePlanningGoal(goalId, options = {}) {
   const index = board.goals.findIndex((goal) => goal.id === goalId);
   if (index < 0) throw new Error('Goal not found');
   const [goal] = board.goals.splice(index, 1);
+  // Remove the deleted goal from any remaining goal's dependencies so the graph stays clean.
+  board.goals = board.goals.map((item) => (item.dependsOn?.length ? { ...item, dependsOn: item.dependsOn.filter((id) => id !== goalId) } : item));
   return { board: await savePlanningBoard(board, options), goal };
 }
