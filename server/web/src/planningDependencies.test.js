@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { isDependencyOptionVisible, prioritizeSameProject, wouldCreateCycle } from './planningDependencies.js';
+import {
+  isDependencyOptionVisible,
+  isGoalVisibleInAllProjects,
+  prioritizeSameProject,
+  wouldCreateCycle,
+} from './planningDependencies.js';
 
 const goals = [
   { id: '1', dependsOn: [] },
@@ -25,6 +30,13 @@ test('hides done and archived goals from dependency options', () => {
   assert.equal(isDependencyOptionVisible({ status: 'in_progress' }), true);
   assert.equal(isDependencyOptionVisible({ status: 'done' }), false);
   assert.equal(isDependencyOptionVisible({ status: 'archived' }), false);
+});
+
+test('hides configured projects from all-project views', () => {
+  const hiddenProjectIds = new Set(['msc']);
+
+  assert.equal(isGoalVisibleInAllProjects({ projectId: 'personal-agent' }, hiddenProjectIds), true);
+  assert.equal(isGoalVisibleInAllProjects({ projectId: 'msc' }, hiddenProjectIds), false);
 });
 
 test('lists same-project dependency options first without changing group order', () => {

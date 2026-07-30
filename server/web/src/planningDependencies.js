@@ -4,6 +4,10 @@ export function isDependencyOptionVisible(goal) {
   return !HIDDEN_DEPENDENCY_OPTION_STATES.has(goal.status);
 }
 
+export function isGoalVisibleInAllProjects(goal, hiddenProjectIds) {
+  return !hiddenProjectIds.has(goal.projectId);
+}
+
 export function prioritizeSameProject(goals, projectId) {
   const sameProject = [];
   const otherProjects = [];

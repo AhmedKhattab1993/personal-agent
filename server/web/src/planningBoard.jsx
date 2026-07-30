@@ -10,7 +10,12 @@ import dagre from '@dagrejs/dagre';
 import '@xyflow/react/dist/style.css';
 
 import { Badge, Button, Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle, Input, Select } from './components/ui.jsx';
-import { isDependencyOptionVisible, prioritizeSameProject, wouldCreateCycle } from './planningDependencies.js';
+import {
+  isDependencyOptionVisible,
+  isGoalVisibleInAllProjects,
+  prioritizeSameProject,
+  wouldCreateCycle,
+} from './planningDependencies.js';
 
 const STATES = [
   { id: 'backlog', label: 'Backlog', icon: Archive, color: '#78909d' },
@@ -239,7 +244,7 @@ export default function PlanningBoard({ navigation }) {
   const hiddenProjectIds = useMemo(() => new Set(board.projects.filter((project) => project.hiddenFromAll).map((project) => project.id)), [board.projects]);
   const visibleGoals = useMemo(() => board.goals.filter((goal) => {
     if (['archived', 'canceled'].includes(goal.status)) return false;
-    if (projectFilter === 'all' && hiddenProjectIds.has(goal.projectId)) return false;
+    if (projectFilter === 'all' && !isGoalVisibleInAllProjects(goal, hiddenProjectIds)) return false;
     if (projectFilter !== 'all' && goal.projectId !== projectFilter) return false;
     if (!query.trim()) return true;
     return [goal.id, goal.title, goal.outcome, goal.completionCriteria, goal.nonGoals, projectMap[goal.projectId]?.name].join(' ').toLowerCase().includes(query.trim().toLowerCase());
@@ -247,13 +252,14 @@ export default function PlanningBoard({ navigation }) {
 
   const counts = useMemo(() => Object.fromEntries(STATES.map((state) => [state.id, visibleGoals.filter((goal) => goal.status === state.id).length])), [visibleGoals]);
   const statusMeta = useCallback((status) => STATES.find((state) => state.id === status), []);
-  // The graph view spans every project (the whole point is cross-project chains),
-  // refined only by the search box. Archived/canceled goals are excluded.
+  // The graph mirrors the All-projects view so cross-project chains stay visible
+  // while projects hidden from the aggregate view remain excluded.
   const graphGoals = useMemo(() => board.goals.filter((goal) => {
     if (['archived', 'canceled'].includes(goal.status)) return false;
+    if (!isGoalVisibleInAllProjects(goal, hiddenProjectIds)) return false;
     if (!query.trim()) return true;
     return [goal.id, goal.title, goal.outcome, goal.completionCriteria, goal.nonGoals, projectMap[goal.projectId]?.name].join(' ').toLowerCase().includes(query.trim().toLowerCase());
-  }), [board.goals, query, projectMap]);
+  }), [board.goals, query, projectMap, hiddenProjectIds]);
   const summaryGoals = useMemo(() => board.goals.filter((goal) => !hiddenProjectIds.has(goal.projectId)), [board.goals, hiddenProjectIds]);
   const activeCount = summaryGoals.filter((goal) => goal.status === 'in_progress').length;
   const readyCount = summaryGoals.filter((goal) => goal.status === 'planned').length;
