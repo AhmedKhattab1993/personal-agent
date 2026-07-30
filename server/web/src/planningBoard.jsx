@@ -10,6 +10,7 @@ import dagre from '@dagrejs/dagre';
 import '@xyflow/react/dist/style.css';
 
 import { Badge, Button, Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTitle, Input, Select } from './components/ui.jsx';
+import { wouldCreateCycle } from './planningDependencies.js';
 
 const STATES = [
   { id: 'backlog', label: 'Backlog', icon: Archive, color: '#78909d' },
@@ -107,24 +108,6 @@ function reorderGoals(goals, goalId, status, position) {
       .forEach((goal, index) => updates.set(goal.id, { status: sourceStatus, position: index }));
   }
   return goals.map((goal) => updates.has(goal.id) ? { ...goal, ...updates.get(goal.id) } : goal);
-}
-
-// Returns true when adding an edge from `goalId` -> `candidateId` (candidate becomes a prerequisite)
-// would create a dependency cycle. A cycle exists when goalId is reachable from candidateId
-// following existing dependsOn edges.
-function wouldCreateCycle(goals, goalId, candidateId) {
-  if (!goalId || goalId === candidateId) return true;
-  const adjacency = new Map(goals.map((goal) => [goal.id, goal.dependsOn ?? []]));
-  const stack = [candidateId];
-  const visited = new Set();
-  while (stack.length) {
-    const current = stack.pop();
-    if (current === goalId) return true;
-    if (visited.has(current)) continue;
-    visited.add(current);
-    for (const next of adjacency.get(current) ?? []) stack.push(next);
-  }
-  return false;
 }
 
 const GRAPH_NODE_WIDTH = 232;
