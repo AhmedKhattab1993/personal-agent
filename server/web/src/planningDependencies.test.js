@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   isDependencyOptionVisible,
   isGoalVisibleInAllProjects,
+  isGoalVisibleInGraph,
   prioritizeSameProject,
   wouldCreateCycle,
 } from './planningDependencies.js';
@@ -37,6 +38,15 @@ test('hides configured projects from all-project views', () => {
 
   assert.equal(isGoalVisibleInAllProjects({ projectId: 'personal-agent' }, hiddenProjectIds), true);
   assert.equal(isGoalVisibleInAllProjects({ projectId: 'msc' }, hiddenProjectIds), false);
+});
+
+test('hides done, archived, and canceled goals from the graph', () => {
+  const hiddenProjectIds = new Set();
+
+  assert.equal(isGoalVisibleInGraph({ projectId: 'p', status: 'backlog' }, hiddenProjectIds), true);
+  assert.equal(isGoalVisibleInGraph({ projectId: 'p', status: 'done' }, hiddenProjectIds), false);
+  assert.equal(isGoalVisibleInGraph({ projectId: 'p', status: 'archived' }, hiddenProjectIds), false);
+  assert.equal(isGoalVisibleInGraph({ projectId: 'p', status: 'canceled' }, hiddenProjectIds), false);
 });
 
 test('lists same-project dependency options first without changing group order', () => {

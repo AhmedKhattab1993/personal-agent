@@ -13,6 +13,7 @@ import { Badge, Button, Dialog, DialogBody, DialogContent, DialogFooter, DialogH
 import {
   isDependencyOptionVisible,
   isGoalVisibleInAllProjects,
+  isGoalVisibleInGraph,
   prioritizeSameProject,
   wouldCreateCycle,
 } from './planningDependencies.js';
@@ -255,8 +256,7 @@ export default function PlanningBoard({ navigation }) {
   // The graph mirrors the All-projects view so cross-project chains stay visible
   // while projects hidden from the aggregate view remain excluded.
   const graphGoals = useMemo(() => board.goals.filter((goal) => {
-    if (['archived', 'canceled'].includes(goal.status)) return false;
-    if (!isGoalVisibleInAllProjects(goal, hiddenProjectIds)) return false;
+    if (!isGoalVisibleInGraph(goal, hiddenProjectIds)) return false;
     if (!query.trim()) return true;
     return [goal.id, goal.title, goal.outcome, goal.completionCriteria, goal.nonGoals, projectMap[goal.projectId]?.name].join(' ').toLowerCase().includes(query.trim().toLowerCase());
   }), [board.goals, query, projectMap, hiddenProjectIds]);

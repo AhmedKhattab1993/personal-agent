@@ -8,6 +8,12 @@ export function isGoalVisibleInAllProjects(goal, hiddenProjectIds) {
   return !hiddenProjectIds.has(goal.projectId);
 }
 
+const HIDDEN_GRAPH_STATES = new Set(['done', 'archived', 'canceled']);
+
+export function isGoalVisibleInGraph(goal, hiddenProjectIds) {
+  return !HIDDEN_GRAPH_STATES.has(goal.status) && isGoalVisibleInAllProjects(goal, hiddenProjectIds);
+}
+
 export function prioritizeSameProject(goals, projectId) {
   const sameProject = [];
   const otherProjects = [];
