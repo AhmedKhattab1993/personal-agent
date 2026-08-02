@@ -2,12 +2,44 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  estimateEconomicValue,
   estimateEffortHours,
   estimateOpportunity,
   filterJobsByPublishedHours,
+  formatEconomicValue,
+  formatOpportunityBadge,
   parseBudget,
   sortJobsForDisplay,
 } from './opportunityScore.js';
+
+const REFERENCE_TIME = '2026-08-02T12:00:00Z';
+
+function completeJob(overrides = {}) {
+  return {
+    id: 'job',
+    title: 'Automation opportunity',
+    description: 'A clear implementation brief. '.repeat(30),
+    budget: '40.0 - 100.0/hr',
+    durationLabel: '1 to 3 months',
+    engagement: '30+ hrs/week',
+    experienceLevel: 'EXPERT',
+    totalApplicants: 14,
+    publishedDateTime: '2026-08-02T00:00:00Z',
+    laneId: 'automation',
+    laneMatches: ['workflow automation'],
+    piClassification: { laneId: 'automation', rationale: 'Clear automation fit.' },
+    skills: ['API Integration', 'Automation'],
+    client: {
+      hires: 30,
+      postedJobs: 40,
+      spent: '10000',
+      feedback: 4.8,
+      reviews: 10,
+      verificationStatus: 'VERIFIED',
+    },
+    ...overrides,
+  };
+}
 
 test('parses fixed and hourly Upwork budget labels', () => {
   assert.deepEqual(parseBudget('2,500.0'), {
@@ -20,6 +52,7 @@ test('parses fixed and hourly Upwork budget labels', () => {
   assert.deepEqual(parseBudget('50.0 - 100.0/hr'), {
     type: 'hourly',
     hourlyRate: 75,
+    conservativeHourlyRate: 62.5,
     min: 50,
     max: 100,
   });
@@ -37,77 +70,113 @@ test('estimates lower effort for shorter jobs', () => {
   }), 160);
 });
 
-test('scores expected payment per estimated hour of work', () => {
-  const shortFixed = estimateOpportunity({
+test('estimates conservative economics for hourly ranges and fixed-price work', () => {
+  const hourly = estimateEconomicValue({
+    budget: '20.0 - 125.0/hr',
+    durationLabel: '1 to 3 months',
+    engagement: '30+ hrs/week',
+  });
+  const fixed = estimateEconomicValue({
     budget: '1000.0',
     durationLabel: 'Less than 1 month',
     engagement: null,
   });
 
-  const longFixed = estimateOpportunity({
-    budget: '5000.0',
-    durationLabel: 'More than 6 months',
-    engagement: null,
+  assert.equal(hourly.hourlyEquivalent, 46.25);
+  assert.equal(hourly.method, 'hourly_range_lower_quartile');
+  assert.equal(fixed.effortHours, 60);
+  assert.equal(fixed.hourlyEquivalent, 1000 / 60);
+  assert.equal(fixed.method, 'fixed_budget_buffered_effort');
+});
+
+test('builds an explainable apply-priority score', () => {
+  const estimate = estimateOpportunity(completeJob(), REFERENCE_TIME);
+
+  assert.equal(estimate.rankable, true);
+  assert.equal(estimate.score > 70, true);
+  assert.deepEqual(Object.keys(estimate.components), [
+    'fit', 'economics', 'winability', 'clientQuality', 'scopeConfidence',
+  ]);
+  assert.equal(estimate.riskPenalty, 1);
+  assert.equal(estimate.confidence, 'high');
+  assert.match(formatOpportunityBadge(estimate), /^Priority \d+\/100 · \$55\/hr est$/);
+  assert.equal(formatEconomicValue(estimate.economic), '$55/hr est');
+});
+
+test('ranks a focused low-competition opportunity above a crowded wide range', () => {
+  const crowded = completeJob({
+    id: 'crowded',
+    budget: '20.0 - 125.0/hr',
+    totalApplicants: 121,
+    client: { ...completeJob().client, hires: 20 },
+  });
+  const focused = completeJob({ id: 'focused' });
+
+  const sorted = sortJobsForDisplay([crowded, focused], 'opportunity', REFERENCE_TIME);
+
+  assert.deepEqual(sorted.map((job) => job.id), ['focused', 'crowded']);
+  assert.equal(
+    estimateOpportunity(focused, REFERENCE_TIME).score
+      > estimateOpportunity(crowded, REFERENCE_TIME).score,
+    true
+  );
+});
+
+test('lets strong non-economic signals rank a missing-budget opportunity', () => {
+  const weakRated = completeJob({
+    id: 'weak-rated',
+    budget: '5.0/hr',
+    totalApplicants: 80,
+    laneMatches: ['workflow automation'],
+    client: {
+      hires: 0,
+      postedJobs: 0,
+      spent: '0',
+      feedback: 0,
+      reviews: 0,
+      verificationStatus: null,
+    },
+  });
+  const strongUnrated = completeJob({
+    id: 'strong-unrated',
+    budget: null,
+    totalApplicants: 1,
+    laneMatches: ['workflow automation', 'API integration', 'n8n'],
+    client: {
+      hires: 50,
+      postedJobs: 40,
+      spent: '50000',
+      feedback: 5,
+      reviews: 20,
+      verificationStatus: 'VERIFIED',
+    },
   });
 
-  assert.equal(shortFixed.rankable, true);
-  assert.equal(shortFixed.score, 25);
-  assert.equal(longFixed.score < shortFixed.score, true);
+  const sorted = sortJobsForDisplay([weakRated, strongUnrated], 'opportunity', REFERENCE_TIME);
+
+  assert.deepEqual(sorted.map((job) => job.id), ['strong-unrated', 'weak-rated']);
+  assert.equal(estimateEconomicValue(strongUnrated).rankable, false);
+  assert.equal(estimateOpportunity(strongUnrated, REFERENCE_TIME).rankable, true);
 });
 
-test('sorts highest opportunity before newest fallback', () => {
+test('uses recency as the final tie-breaker', () => {
+  const common = completeJob({ budget: null, totalApplicants: null });
   const sorted = sortJobsForDisplay([
     {
-      id: 'new-low',
-      title: 'Newest low value',
-      budget: '100.0',
-      durationLabel: 'Less than 1 month',
-      publishedDateTime: '2026-07-08T12:00:00Z',
-    },
-    {
-      id: 'old-high',
-      title: 'Older high value',
-      budget: '50.0 - 100.0/hr',
-      durationLabel: '1 to 3 months',
-      engagement: 'Less than 30 hrs/week',
+      ...common,
+      id: 'older',
+      title: 'Older',
       publishedDateTime: '2026-07-07T12:00:00Z',
     },
     {
-      id: 'unknown',
-      title: 'Unknown budget',
-      budget: null,
-      durationLabel: 'Less than 1 month',
-      publishedDateTime: '2026-07-09T12:00:00Z',
-    },
-  ], 'opportunity');
-
-  assert.deepEqual(sorted.map((job) => job.id), ['old-high', 'new-low', 'unknown']);
-});
-
-test('keeps unrated jobs behind scored jobs and orders them by recency', () => {
-  const sorted = sortJobsForDisplay([
-    {
-      id: 'older-unknown',
-      title: 'Older unknown',
-      budget: null,
-      publishedDateTime: '2026-07-07T12:00:00Z',
-    },
-    {
-      id: 'ranked',
-      title: 'Ranked',
-      budget: '500.0',
-      durationLabel: 'Less than 1 month',
-      publishedDateTime: '2026-07-06T12:00:00Z',
-    },
-    {
-      id: 'newer-unknown',
-      title: 'Newer unknown',
-      budget: null,
+      ...common,
+      id: 'newer',
+      title: 'Newer',
       publishedDateTime: '2026-07-08T12:00:00Z',
     },
-  ], 'opportunity');
+  ], 'opportunity', REFERENCE_TIME);
 
-  assert.deepEqual(sorted.map((job) => job.id), ['ranked', 'newer-unknown', 'older-unknown']);
+  assert.deepEqual(sorted.map((job) => job.id), ['newer', 'older']);
 });
 
 test('filters jobs by selected published-hour window', () => {

@@ -13,7 +13,7 @@ import {
 } from './components/ui.jsx';
 import {
   estimateOpportunity, filterJobsByPublishedHours, formatOpportunityBadge,
-  formatOpportunityTitle, sortJobsForDisplay,
+  formatEconomicValue, formatOpportunityTitle, sortJobsForDisplay,
 } from './opportunityScore.js';
 import PlanningBoard from './planningBoard.jsx';
 import './styles.css';
@@ -24,6 +24,13 @@ const LANES = [
   { id: 'automation', label: 'Automation', icon: DatabaseZap, accent: 'amber', description: 'Systems & workflow operations' },
 ];
 const TIME_WINDOWS = [1, 4, 8, 24, 72];
+const PRIORITY_COMPONENTS = [
+  ['fit', 'Fit'],
+  ['economics', 'Economics'],
+  ['winability', 'Winability'],
+  ['clientQuality', 'Client'],
+  ['scopeConfidence', 'Scope'],
+];
 const JOB_CLASSIFICATIONS = {
   APPLIED: 'applied',
   NOT_INTERESTED: 'not_interested',
@@ -64,8 +71,8 @@ function countLanes(records) {
 
 function scoreTone(estimate) {
   if (!estimate?.rankable) return 'muted';
-  if (estimate.score >= 35) return 'high';
-  if (estimate.score >= 15) return 'medium';
+  if (estimate.score >= 70) return 'high';
+  if (estimate.score >= 50) return 'medium';
   return 'low';
 }
 
@@ -175,13 +182,14 @@ function UpworkView({ navigation }) {
     if (!query.trim()) return true;
     const haystack = [job.title, job.description, job.lane, job.piClassification?.rationale, ...(job.skills ?? []), ...(job.laneMatches ?? [])].join(' ').toLowerCase();
     return haystack.includes(query.trim().toLowerCase());
-  }), sortMode), [timeWindowJobs, lane, query, sortMode]);
+  }), sortMode, referenceTime), [timeWindowJobs, lane, query, sortMode, referenceTime]);
 
   const laneCounts = useMemo(() => countLanes(timeWindowJobs), [timeWindowJobs]);
   const newCount = timeWindowJobs.filter((job) => job.status === 'new').length;
-  const rankable = timeWindowJobs.map(estimateOpportunity).filter((estimate) => estimate.rankable);
-  const highFitCount = rankable.filter((estimate) => estimate.score >= 35).length;
-  const selectedOpportunity = selectedJob ? estimateOpportunity(selectedJob) : null;
+  const strongPriorityCount = timeWindowJobs
+    .map((job) => estimateOpportunity(job, referenceTime))
+    .filter((estimate) => estimate.score >= 70).length;
+  const selectedOpportunity = selectedJob ? estimateOpportunity(selectedJob, referenceTime) : null;
   const activeFilterCount = Number(classificationView !== 'open') + Number(lane !== 'all') + Number(timeWindowHours !== '72') + Number(sortMode !== 'opportunity') + Number(Boolean(query));
   function resetFilters() {
     setQuery(''); setLane('all'); setClassificationView('open'); setTimeWindowHours('72'); setSortMode('opportunity');
@@ -211,11 +219,11 @@ function UpworkView({ navigation }) {
           <div className="hero-copy">
             <Badge className="signal-badge"><Sparkles /> Personal opportunity radar</Badge>
             <h1>Find the work worth <em>winning.</em></h1>
-            <p>One focused view of every relevant Upwork signal—ranked by value, recency, and fit for your three business lanes.</p>
+            <p>One focused view of every relevant Upwork signal—ranked by fit, economics, winability, client quality, and scope.</p>
           </div>
           <div className="hero-stats">
             <div><span>{savedView ? viewMeta.label : 'In radar'}</span><strong>{timeWindowJobs.length}</strong><small>{savedView ? 'all saved jobs' : `last ${timeWindowHours}h`}</small></div>
-            <div><span>High value</span><strong>{highFitCount}</strong><small>$35+/hr equivalent</small></div>
+            <div><span>Strong priority</span><strong>{strongPriorityCount}</strong><small>70+ apply score</small></div>
             <div><span>{savedView ? 'Saved jobs' : 'New signals'}</span><strong>{savedView ? timeWindowJobs.length : newCount}</strong><small>{savedView ? 'kept for review' : 'unreviewed jobs'}</small></div>
           </div>
         </section>
@@ -246,7 +254,7 @@ function UpworkView({ navigation }) {
               {TIME_WINDOWS.map((hours) => <button key={hours} className={timeWindowHours === String(hours) ? 'active' : ''} onClick={() => setTimeWindowHours(String(hours))}>{hours}h</button>)}
             </div>}
             <Select aria-label="Sort opportunities" value={sortMode} onChange={(event) => setSortMode(event.target.value)}>
-              <option value="opportunity">Best opportunity</option><option value="newest">Most recent</option>
+              <option value="opportunity">Best apply priority</option><option value="newest">Most recent</option>
             </Select>
             {activeFilterCount > 0 && <button className="clear-filters" onClick={resetFilters}>Reset {activeFilterCount}</button>}
           </div>
@@ -257,10 +265,10 @@ function UpworkView({ navigation }) {
           <span><strong>{filteredJobs.length}</strong> matches</span>
         </div>
 
-        {loading ? <div className="loading-state"><RefreshCcw className="animate-spin" /><span>Calibrating opportunity radar…</span></div> : (
+        {loading ? <div className="loading-state"><RefreshCcw className="animate-spin" /><span>Scoring opportunity radar…</span></div> : (
           <section className="opportunity-list">
             {filteredJobs.map((job, index) => {
-              const meta = laneMeta(job.laneId); const opportunity = estimateOpportunity(job); const tone = scoreTone(opportunity);
+              const meta = laneMeta(job.laneId); const opportunity = estimateOpportunity(job, referenceTime); const tone = scoreTone(opportunity);
               return (
                 <article key={job.id} className={`opportunity-card accent-${meta.accent}`}>
                   <div className="rank-column"><span>#{String(index + 1).padStart(2, '0')}</span><i /></div>
@@ -280,8 +288,9 @@ function UpworkView({ navigation }) {
                     </div>
                   </div>
                   <aside className="job-metrics">
-                    <div className={`score-box score-${tone}`} title={formatOpportunityTitle(opportunity)}><span>Value signal</span><strong>{opportunity.rankable ? `$${opportunity.score.toFixed(opportunity.score >= 100 ? 0 : 1)}` : '—'}</strong><small>{opportunity.rankable ? '/ hr equivalent' : 'Budget unrated'}</small></div>
+                    <div className={`score-box score-${tone}`} title={formatOpportunityTitle(opportunity)}><span>Apply priority</span><strong>{Math.round(opportunity.score)}</strong><small>/ 100 · {opportunity.confidence}</small></div>
                     <dl>
+                      <div><dt><Gauge /> Economics</dt><dd>{formatEconomicValue(opportunity.economic)}</dd></div>
                       <div><dt><CircleDollarSign /> Budget</dt><dd>{job.budget || 'Not stated'}</dd></div>
                       <div><dt><Users /> Applicants</dt><dd>{job.totalApplicants ?? '—'}</dd></div>
                       <div><dt><MapPin /> Client</dt><dd>{job.client?.country || 'Unknown'}</dd></div>
@@ -307,6 +316,10 @@ function UpworkView({ navigation }) {
           </DialogHeader>
           <DialogBody className="dialog-body">
             {selectedJob.piClassification?.rationale && <div className="pi-insight"><span><Sparkles /> Agent signal</span><p>{selectedJob.piClassification.rationale}</p></div>}
+            {selectedOpportunity && <section className="priority-breakdown">
+              <header><div><span>Apply priority</span><strong>{Math.round(selectedOpportunity.score)}/100</strong></div><small>{formatEconomicValue(selectedOpportunity.economic)} · {selectedOpportunity.confidence} confidence · risk −{Math.round(selectedOpportunity.riskPenalty)}</small></header>
+              <div>{PRIORITY_COMPONENTS.map(([key, label]) => <div key={key}><span>{label}</span><strong>{Math.round(selectedOpportunity.components[key])}</strong></div>)}</div>
+            </section>}
             <section className="classification-panel">
               <div><span className="section-kicker">Quick classification</span><strong>{selectedJob.classification ? `Saved as ${selectedJob.classification === JOB_CLASSIFICATIONS.APPLIED ? 'Applied' : 'Not interested'}` : 'Keep this job organized while you review it.'}</strong></div>
               <div className="classification-actions">
