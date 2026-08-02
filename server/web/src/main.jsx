@@ -16,7 +16,7 @@ import {
   formatEconomicValue, formatOpportunityTitle, sortJobsForDisplay,
 } from './opportunityScore.js';
 import { copyTextToClipboard } from './clipboard.js';
-import { findAdjacentJob } from './jobNavigation.js';
+import { findAdjacentJob, includeSelectedJobInNavigation } from './jobNavigation.js';
 import PlanningBoard from './planningBoard.jsx';
 import './styles.css';
 
@@ -200,8 +200,13 @@ function UpworkView({ navigation }) {
     const haystack = [job.title, job.description, job.lane, job.piClassification?.rationale, ...(job.skills ?? []), ...(job.laneMatches ?? [])].join(' ').toLowerCase();
     return haystack.includes(query.trim().toLowerCase());
   }), sortMode, referenceTime), [timeWindowJobs, lane, query, sortMode, referenceTime]);
-  const previousJob = findAdjacentJob(filteredJobs, selectedJob?.id, -1);
-  const nextJob = findAdjacentJob(filteredJobs, selectedJob?.id, 1);
+  const navigationJobs = useMemo(() => includeSelectedJobInNavigation(
+    filteredJobs,
+    selectedJob,
+    (jobs) => sortJobsForDisplay(jobs, sortMode, referenceTime),
+  ), [filteredJobs, selectedJob, sortMode, referenceTime]);
+  const previousJob = findAdjacentJob(navigationJobs, selectedJob?.id, -1);
+  const nextJob = findAdjacentJob(navigationJobs, selectedJob?.id, 1);
 
   const laneCounts = useMemo(() => countLanes(timeWindowJobs), [timeWindowJobs]);
   const newCount = timeWindowJobs.filter((job) => job.status === 'new').length;
@@ -214,7 +219,7 @@ function UpworkView({ navigation }) {
     setQuery(''); setLane('all'); setClassificationView('open'); setTimeWindowHours('72'); setSortMode('opportunity');
   }
   function navigateSelectedJob(direction) {
-    const adjacentJob = findAdjacentJob(filteredJobs, selectedJob?.id, direction);
+    const adjacentJob = findAdjacentJob(navigationJobs, selectedJob?.id, direction);
     if (adjacentJob) setSelectedJob(adjacentJob);
   }
 
