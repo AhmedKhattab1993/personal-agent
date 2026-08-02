@@ -15,6 +15,7 @@ import {
   estimateOpportunity, filterJobsByPublishedHours, formatOpportunityBadge,
   formatEconomicValue, formatOpportunityTitle, sortJobsForDisplay,
 } from './opportunityScore.js';
+import { copyTextToClipboard } from './clipboard.js';
 import PlanningBoard from './planningBoard.jsx';
 import './styles.css';
 
@@ -97,6 +98,7 @@ function UpworkView({ navigation }) {
   const [coverLetterLoading, setCoverLetterLoading] = useState(false);
   const [coverLetterError, setCoverLetterError] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState(null);
   const [classifyingJobId, setClassifyingJobId] = useState(null);
 
   async function loadJobs() {
@@ -140,6 +142,7 @@ function UpworkView({ navigation }) {
 
   async function loadSuggestedCoverLetter(job, force = false) {
     if (!job?.id || (!force && job.suggestedCoverLetter)) return;
+    if (force) { setCopied(false); setCopyError(null); }
     setCoverLetterLoading(true); setCoverLetterError(null);
     try {
       const response = await fetch(`/api/upwork/jobs/${encodeURIComponent(job.id)}/cover-letter`, {
@@ -153,13 +156,26 @@ function UpworkView({ navigation }) {
     finally { setCoverLetterLoading(false); }
   }
 
+  async function copyProposal() {
+    const proposal = selectedJob?.suggestedCoverLetter?.text;
+    if (!proposal) return;
+    setCopyError(null);
+    try {
+      await copyTextToClipboard(proposal);
+      setCopied(true);
+    } catch (error) {
+      setCopied(false);
+      setCopyError(error.message ?? 'Unable to copy the proposal.');
+    }
+  }
+
   useEffect(() => { loadJobs().catch((err) => setError(err.message)).finally(() => setLoading(false)); }, []);
   useEffect(() => {
     const close = (event) => event.key === 'Escape' && setSelectedJob(null);
     window.addEventListener('keydown', close); return () => window.removeEventListener('keydown', close);
   }, []);
   useEffect(() => {
-    setCopied(false); setCoverLetterError(null);
+    setCopied(false); setCopyError(null); setCoverLetterError(null);
     if (selectedJob) loadSuggestedCoverLetter(selectedJob).catch((err) => setCoverLetterError(err.message));
   }, [selectedJob?.id]);
 
@@ -329,11 +345,12 @@ function UpworkView({ navigation }) {
             </section>
             <section className="proposal-panel">
               <div className="proposal-header"><div><span className="section-kicker">Ready to personalize</span><h3><MessageSquareText /> Proposal draft</h3></div><div>
-                {selectedJob.suggestedCoverLetter?.text && <Button variant="outline" size="sm" onClick={async () => { await navigator.clipboard?.writeText(selectedJob.suggestedCoverLetter.text); setCopied(true); }}><Clipboard /> {copied ? 'Copied' : 'Copy'}</Button>}
+                {selectedJob.suggestedCoverLetter?.text && <Button variant="outline" size="sm" onClick={copyProposal}><Clipboard /> {copied ? 'Copied' : 'Copy'}</Button>}
                 <Button variant="outline" size="sm" disabled={coverLetterLoading} onClick={() => loadSuggestedCoverLetter(selectedJob, true)}><RefreshCcw className={coverLetterLoading ? 'animate-spin' : ''} /> Regenerate</Button>
               </div></div>
               {coverLetterLoading && !selectedJob.suggestedCoverLetter?.text && <p className="muted-copy">Agent is drafting your response…</p>}
               {coverLetterError && <p className="proposal-error">{coverLetterError}</p>}
+              {copyError && <p className="proposal-error" role="status">{copyError}</p>}
               {selectedJob.suggestedCoverLetter?.text && <div className="proposal-copy">{selectedJob.suggestedCoverLetter.text}</div>}
             </section>
             <section className="description-panel"><span className="section-kicker">Full brief</span><h3><FileText /> Job description</h3><div>{selectedJob.description || 'No description available.'}</div></section>

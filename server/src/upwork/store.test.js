@@ -5,6 +5,7 @@ import {
   JOB_CLASSIFICATIONS,
   compactJob,
   normalizeJobClassification,
+  upworkApplyUrl,
 } from './store.js';
 
 test('normalizes supported Upwork job classifications', () => {
@@ -15,9 +16,18 @@ test('normalizes supported Upwork job classifications', () => {
   assert.throws(() => normalizeJobClassification('maybe'), /classification must be one of/);
 });
 
+test('builds the Upwork proposal apply URL from a job ciphertext', () => {
+  assert.equal(
+    upworkApplyUrl('~0123456789'),
+    'https://www.upwork.com/ab/proposals/job/~0123456789/apply/'
+  );
+  assert.equal(upworkApplyUrl(null), null);
+});
+
 test('preserves a job classification when compacting refreshed Upwork data', () => {
   const refreshed = compactJob({
     id: 'job-1',
+    ciphertext: '~0123456789',
     title: 'Refreshed job',
     description: 'Updated description',
     publishedDateTime: '2026-08-02T10:00:00Z',
@@ -38,6 +48,7 @@ test('preserves a job classification when compacting refreshed Upwork data', () 
   }, '2026-08-02T10:01:00Z');
 
   assert.equal(refreshed.classification, JOB_CLASSIFICATIONS.APPLIED);
+  assert.equal(refreshed.url, 'https://www.upwork.com/ab/proposals/job/~0123456789/apply/');
   assert.equal(refreshed.firstSeenAt, '2026-08-01T10:00:00Z');
   assert.equal(refreshed.seenCount, 3);
 });

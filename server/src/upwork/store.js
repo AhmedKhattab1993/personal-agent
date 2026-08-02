@@ -40,8 +40,12 @@ function moneyDisplay(value) {
   return value?.displayValue && value.displayValue !== '0.0' ? value.displayValue : null;
 }
 
+export function upworkApplyUrl(ciphertext) {
+  return ciphertext ? `https://www.upwork.com/ab/proposals/job/${ciphertext}/apply/` : null;
+}
+
 function jobUrl(job) {
-  return job.ciphertext ? `https://www.upwork.com/jobs/${job.ciphertext}` : null;
+  return upworkApplyUrl(job.ciphertext);
 }
 
 function normalizeCountry(country) {
@@ -213,6 +217,7 @@ function normalizeUpworkState(state) {
     .filter((job) => shouldRetainJob(job, cutoff))
     .map((job) => ({
       ...job,
+      url: jobUrl(job),
       classification: normalizeJobClassification(job.classification),
       suggestedCoverLetter: normalizeSuggestedCoverLetter(job.suggestedCoverLetter, job),
     })));
