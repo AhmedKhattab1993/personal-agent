@@ -269,7 +269,7 @@ svg { width: 1rem; height: 1rem; stroke-width: 2; }
   position: absolute; right: 8px; top: 7px; display: grid; place-items: center;
   width: 24px; height: 24px; border: 0; color: var(--fg-tertiary); background: transparent;
 }
-.filter-group, .time-pills { display: flex; align-items: center; gap: 8px; }
+.filter-group, .time-pills, .classification-pills { display: flex; align-items: center; gap: 8px; }
 .time-pills {
   gap: 2px; padding: 3px; border-radius: var(--radius);
   background: var(--bg); border: 1px solid var(--border);
@@ -280,6 +280,26 @@ svg { width: 1rem; height: 1rem; stroke-width: 2; }
 }
 .time-pills button.active {
   color: #000; background: #fff; box-shadow: 0 0 0 1px rgba(255,255,255,.2);
+}
+.classification-pills {
+  gap: 2px; padding: 3px; border-radius: var(--radius);
+  background: var(--bg); border: 1px solid var(--border);
+}
+.classification-pills button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+  height: 28px; padding: 0 9px; border: 0; border-radius: var(--radius-sm);
+  color: var(--fg-tertiary); font-size: .75rem; font-weight: 500; background: transparent;
+}
+.classification-pills button span {
+  min-width: 16px; color: var(--fg-quaternary); font-size: .625rem;
+}
+.classification-pills button:hover { color: var(--fg); }
+.classification-pills button.active {
+  color: #000; background: #fff; box-shadow: 0 0 0 1px rgba(255,255,255,.2);
+}
+.classification-pills button.active span { color: #444; }
+.saved-view-note {
+  color: var(--fg-tertiary); font-size: .6875rem; white-space: nowrap;
 }
 .filter-group select {
   width: 160px; height: 34px; border-color: var(--border-strong);
@@ -358,6 +378,16 @@ svg { width: 1rem; height: 1rem; stroke-width: 2; }
 }
 .details-link svg { width: 13px; transition: transform .15s; }
 .details-link:hover svg { transform: translateX(3px); }
+.job-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 10px; }
+.classification-actions { display: flex; align-items: center; gap: 5px; }
+.classification-actions .ui-button { color: var(--fg-secondary); font-size: .6875rem; }
+.classification-actions .ui-button:hover { color: var(--fg); }
+.classification-actions .ui-button.classification-active.applied {
+  border-color: rgba(80,227,194,.45); color: var(--success); background: rgba(80,227,194,.08);
+}
+.classification-actions .ui-button.classification-active.not-interested {
+  border-color: rgba(255,77,79,.45); color: #ffb3b4; background: rgba(255,77,79,.08);
+}
 
 .job-metrics {
   position: relative; display: grid; grid-template-columns: 108px 1fr; gap: 16px; align-items: center;
@@ -414,6 +444,12 @@ svg { width: 1rem; height: 1rem; stroke-width: 2; }
 .dialog-summary svg { width: 13px; }
 .score-chip { gap: 5px; margin-left: auto; border-color: var(--warning) !important; color: var(--warning) !important; background: rgba(245,166,35,.08) !important; }
 .dialog-body { display: grid; gap: 18px; max-height: 60vh !important; padding: 22px 32px !important; }
+.classification-panel {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-elevated);
+}
+.classification-panel > div:first-child { display: flex; min-width: 0; flex-direction: column; gap: 5px; }
+.classification-panel strong { color: var(--fg-secondary); font-size: .8125rem; font-weight: 500; }
 .pi-insight {
   display: grid; grid-template-columns: 110px 1fr; gap: 18px; padding: 14px 16px;
   border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-elevated);
@@ -1010,9 +1046,11 @@ svg { width: 1rem; height: 1rem; stroke-width: 2; }
   .opportunity-card { grid-template-columns: 35px minmax(0,1fr); }
   .job-main { padding: 18px 15px; }
   .job-footer { align-items: flex-start; flex-direction: column; }
+  .job-actions { width: 100%; align-items: flex-start; justify-content: space-between; }
   .job-metrics { grid-template-columns: 94px 1fr; padding: 16px 15px; }
   .job-metrics dl { grid-template-columns: repeat(2,1fr); }
   .dialog-heading, .dialog-body { padding-left: 20px !important; padding-right: 20px !important; }
+  .classification-panel { align-items: flex-start; flex-direction: column; }
   .pi-insight { grid-template-columns: 1fr; gap: 5px; }
   .proposal-header { align-items: flex-start; flex-direction: column; }
 
@@ -1034,6 +1072,9 @@ svg { width: 1rem; height: 1rem; stroke-width: 2; }
   .hero-stats strong { font-size: 1.5rem; }
   .hero-stats small { font-size: .625rem; }
   .results-heading { padding-top: 28px; }
+  .classification-pills { width: 100%; }
+  .classification-pills button { flex: 1; padding-inline: 5px; }
+  .saved-view-note { width: 100%; text-align: center; }
   .published { width: 100%; margin: 3px 0 0; }
   .job-metrics { grid-template-columns: 1fr 1fr; }
   .score-box { width: 90px; }

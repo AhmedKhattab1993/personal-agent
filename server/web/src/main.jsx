@@ -24,6 +24,15 @@ const LANES = [
   { id: 'automation', label: 'Automation', icon: DatabaseZap, accent: 'amber', description: 'Systems & workflow operations' },
 ];
 const TIME_WINDOWS = [1, 4, 8, 24, 72];
+const JOB_CLASSIFICATIONS = {
+  APPLIED: 'applied',
+  NOT_INTERESTED: 'not_interested',
+};
+const CLASSIFICATION_VIEWS = [
+  { id: 'open', label: 'Open', heading: 'Open opportunities' },
+  { id: JOB_CLASSIFICATIONS.APPLIED, label: 'Applied', heading: 'All applied jobs' },
+  { id: JOB_CLASSIFICATIONS.NOT_INTERESTED, label: 'Not interested', heading: 'All not interested jobs' },
+];
 
 function formatDate(value) {
   if (!value) return 'Unknown';
@@ -74,12 +83,14 @@ function UpworkView({ navigation }) {
   const [error, setError] = useState(null);
   const [query, setQuery] = useState('');
   const [lane, setLane] = useState('all');
+  const [classificationView, setClassificationView] = useState('open');
   const [timeWindowHours, setTimeWindowHours] = useState('72');
   const [sortMode, setSortMode] = useState('opportunity');
   const [selectedJob, setSelectedJob] = useState(null);
   const [coverLetterLoading, setCoverLetterLoading] = useState(false);
   const [coverLetterError, setCoverLetterError] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [classifyingJobId, setClassifyingJobId] = useState(null);
 
   async function loadJobs() {
     setError(null);
@@ -98,6 +109,26 @@ function UpworkView({ navigation }) {
       setData(payload);
     } catch (refreshError) { setError(refreshError.message); }
     finally { setRefreshing(false); }
+  }
+
+  async function updateJobClassification(job, classification) {
+    if (!job?.id) return;
+    const nextClassification = job.classification === classification ? null : classification;
+    setClassifyingJobId(job.id); setError(null);
+    try {
+      const response = await fetch(`/api/upwork/jobs/${encodeURIComponent(job.id)}/classification`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ classification: nextClassification }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error ?? 'Failed to classify job');
+      setData(payload);
+      setSelectedJob((current) => current?.id === job.id
+        ? payload.jobs?.find((item) => item.id === job.id) ?? { ...current, classification: nextClassification }
+        : current);
+    } catch (classificationError) { setError(classificationError.message); }
+    finally { setClassifyingJobId(null); }
   }
 
   async function loadSuggestedCoverLetter(job, force = false) {
@@ -127,7 +158,18 @@ function UpworkView({ navigation }) {
 
   const jobs = data?.jobs ?? [];
   const referenceTime = data?.summary?.windowEndDateTime ?? data?.summary?.generatedAt ?? new Date().toISOString();
-  const timeWindowJobs = useMemo(() => filterJobsByPublishedHours(jobs, timeWindowHours, referenceTime), [jobs, timeWindowHours, referenceTime]);
+  const viewMeta = CLASSIFICATION_VIEWS.find((view) => view.id === classificationView) ?? CLASSIFICATION_VIEWS[0];
+  const savedView = classificationView !== 'open';
+  const classificationCounts = useMemo(() => Object.fromEntries(
+    CLASSIFICATION_VIEWS.map((view) => [view.id, jobs.filter((job) => view.id === 'open' ? !job.classification : job.classification === view.id).length]),
+  ), [jobs]);
+  const classificationJobs = useMemo(() => jobs.filter((job) => (
+    classificationView === 'open' ? !job.classification : job.classification === classificationView
+  )), [jobs, classificationView]);
+  const timeWindowJobs = useMemo(() => savedView
+    ? classificationJobs
+    : filterJobsByPublishedHours(classificationJobs, timeWindowHours, referenceTime),
+  [classificationJobs, savedView, timeWindowHours, referenceTime]);
   const filteredJobs = useMemo(() => sortJobsForDisplay(timeWindowJobs.filter((job) => {
     if (lane !== 'all' && job.laneId !== lane) return false;
     if (!query.trim()) return true;
@@ -140,7 +182,10 @@ function UpworkView({ navigation }) {
   const rankable = timeWindowJobs.map(estimateOpportunity).filter((estimate) => estimate.rankable);
   const highFitCount = rankable.filter((estimate) => estimate.score >= 35).length;
   const selectedOpportunity = selectedJob ? estimateOpportunity(selectedJob) : null;
-  const activeFilterCount = Number(lane !== 'all') + Number(timeWindowHours !== '72') + Number(sortMode !== 'opportunity') + Number(Boolean(query));
+  const activeFilterCount = Number(classificationView !== 'open') + Number(lane !== 'all') + Number(timeWindowHours !== '72') + Number(sortMode !== 'opportunity') + Number(Boolean(query));
+  function resetFilters() {
+    setQuery(''); setLane('all'); setClassificationView('open'); setTimeWindowHours('72'); setSortMode('opportunity');
+  }
 
   return (
     <main className="app-shell">
@@ -169,9 +214,9 @@ function UpworkView({ navigation }) {
             <p>One focused view of every relevant Upwork signal—ranked by value, recency, and fit for your three business lanes.</p>
           </div>
           <div className="hero-stats">
-            <div><span>In radar</span><strong>{timeWindowJobs.length}</strong><small>last {timeWindowHours}h</small></div>
+            <div><span>{savedView ? viewMeta.label : 'In radar'}</span><strong>{timeWindowJobs.length}</strong><small>{savedView ? 'all saved jobs' : `last ${timeWindowHours}h`}</small></div>
             <div><span>High value</span><strong>{highFitCount}</strong><small>$35+/hr equivalent</small></div>
-            <div><span>New signals</span><strong>{newCount}</strong><small>unreviewed jobs</small></div>
+            <div><span>{savedView ? 'Saved jobs' : 'New signals'}</span><strong>{savedView ? timeWindowJobs.length : newCount}</strong><small>{savedView ? 'kept for review' : 'unreviewed jobs'}</small></div>
           </div>
         </section>
 
@@ -194,18 +239,21 @@ function UpworkView({ navigation }) {
         <section className="command-bar">
           <div className="search-wrap"><Search /><Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search title, skill, client signal…" />{query && <button onClick={() => setQuery('')} aria-label="Clear search"><X /></button>}</div>
           <div className="filter-group">
-            <div className="time-pills" aria-label="Published window">
-              {TIME_WINDOWS.map((hours) => <button key={hours} className={timeWindowHours === String(hours) ? 'active' : ''} onClick={() => setTimeWindowHours(String(hours))}>{hours}h</button>)}
+            <div className="classification-pills" aria-label="Job classification view">
+              {CLASSIFICATION_VIEWS.map((view) => <button key={view.id} className={classificationView === view.id ? 'active' : ''} aria-pressed={classificationView === view.id} onClick={() => setClassificationView(view.id)}>{view.label}<span>{classificationCounts[view.id] ?? 0}</span></button>)}
             </div>
+            {savedView ? <span className="saved-view-note">Showing all saved {viewMeta.label.toLowerCase()} jobs</span> : <div className="time-pills" aria-label="Published window">
+              {TIME_WINDOWS.map((hours) => <button key={hours} className={timeWindowHours === String(hours) ? 'active' : ''} onClick={() => setTimeWindowHours(String(hours))}>{hours}h</button>)}
+            </div>}
             <Select aria-label="Sort opportunities" value={sortMode} onChange={(event) => setSortMode(event.target.value)}>
               <option value="opportunity">Best opportunity</option><option value="newest">Most recent</option>
             </Select>
-            {activeFilterCount > 0 && <button className="clear-filters" onClick={() => { setQuery(''); setLane('all'); setTimeWindowHours('72'); setSortMode('opportunity'); }}>Reset {activeFilterCount}</button>}
+            {activeFilterCount > 0 && <button className="clear-filters" onClick={resetFilters}>Reset {activeFilterCount}</button>}
           </div>
         </section>
 
         <div className="results-heading">
-          <div><span className="section-kicker">Ranked pipeline</span><h2>{lane === 'all' ? 'All opportunities' : laneMeta(lane).label}</h2></div>
+          <div><span className="section-kicker">Ranked pipeline</span><h2>{lane === 'all' ? viewMeta.heading : `${laneMeta(lane).label} · ${viewMeta.label}`}</h2></div>
           <span><strong>{filteredJobs.length}</strong> matches</span>
         </div>
 
@@ -222,7 +270,13 @@ function UpworkView({ navigation }) {
                     <p className="job-description">{jobSnippet(job.description)}</p>
                     <div className="job-footer">
                       <div className="skill-list">{(job.skills ?? []).slice(0, 4).map((skill) => <span key={skill}>{skill}</span>)}{(job.skills?.length ?? 0) > 4 && <span>+{job.skills.length - 4}</span>}</div>
-                      <button className="details-link" onClick={() => setSelectedJob(job)}>Review opportunity <ArrowRight /></button>
+                      <div className="job-actions">
+                        <div className="classification-actions" aria-label={`Classify ${job.title}`}>
+                          <Button variant="outline" size="sm" className={job.classification === JOB_CLASSIFICATIONS.APPLIED ? 'classification-active applied' : ''} aria-pressed={job.classification === JOB_CLASSIFICATIONS.APPLIED} disabled={classifyingJobId === job.id} onClick={() => updateJobClassification(job, JOB_CLASSIFICATIONS.APPLIED)}>Applied</Button>
+                          <Button variant="outline" size="sm" className={job.classification === JOB_CLASSIFICATIONS.NOT_INTERESTED ? 'classification-active not-interested' : ''} aria-pressed={job.classification === JOB_CLASSIFICATIONS.NOT_INTERESTED} disabled={classifyingJobId === job.id} onClick={() => updateJobClassification(job, JOB_CLASSIFICATIONS.NOT_INTERESTED)}>Not interested</Button>
+                        </div>
+                        <button className="details-link" onClick={() => setSelectedJob(job)}>Review opportunity <ArrowRight /></button>
+                      </div>
                     </div>
                   </div>
                   <aside className="job-metrics">
@@ -238,7 +292,7 @@ function UpworkView({ navigation }) {
                 </article>
               );
             })}
-            {filteredJobs.length === 0 && <div className="empty-state"><SlidersHorizontal /><h3>No signals in this view</h3><p>Try a wider time window or reset the active filters.</p><Button variant="outline" onClick={() => { setQuery(''); setLane('all'); setTimeWindowHours('72'); }}>Reset filters</Button></div>}
+            {filteredJobs.length === 0 && <div className="empty-state"><SlidersHorizontal /><h3>No signals in this view</h3><p>{savedView ? 'No jobs have been saved in this category yet.' : 'Try a wider time window or reset the active filters.'}</p><Button variant="outline" onClick={resetFilters}>Reset filters</Button></div>}
           </section>
         )}
       </div>
@@ -253,6 +307,13 @@ function UpworkView({ navigation }) {
           </DialogHeader>
           <DialogBody className="dialog-body">
             {selectedJob.piClassification?.rationale && <div className="pi-insight"><span><Sparkles /> Agent signal</span><p>{selectedJob.piClassification.rationale}</p></div>}
+            <section className="classification-panel">
+              <div><span className="section-kicker">Quick classification</span><strong>{selectedJob.classification ? `Saved as ${selectedJob.classification === JOB_CLASSIFICATIONS.APPLIED ? 'Applied' : 'Not interested'}` : 'Keep this job organized while you review it.'}</strong></div>
+              <div className="classification-actions">
+                <Button variant="outline" size="sm" className={selectedJob.classification === JOB_CLASSIFICATIONS.APPLIED ? 'classification-active applied' : ''} aria-pressed={selectedJob.classification === JOB_CLASSIFICATIONS.APPLIED} disabled={classifyingJobId === selectedJob.id} onClick={() => updateJobClassification(selectedJob, JOB_CLASSIFICATIONS.APPLIED)}>Applied</Button>
+                <Button variant="outline" size="sm" className={selectedJob.classification === JOB_CLASSIFICATIONS.NOT_INTERESTED ? 'classification-active not-interested' : ''} aria-pressed={selectedJob.classification === JOB_CLASSIFICATIONS.NOT_INTERESTED} disabled={classifyingJobId === selectedJob.id} onClick={() => updateJobClassification(selectedJob, JOB_CLASSIFICATIONS.NOT_INTERESTED)}>Not interested</Button>
+              </div>
+            </section>
             <section className="proposal-panel">
               <div className="proposal-header"><div><span className="section-kicker">Ready to personalize</span><h3><MessageSquareText /> Proposal draft</h3></div><div>
                 {selectedJob.suggestedCoverLetter?.text && <Button variant="outline" size="sm" onClick={async () => { await navigator.clipboard?.writeText(selectedJob.suggestedCoverLetter.text); setCopied(true); }}><Clipboard /> {copied ? 'Copied' : 'Copy'}</Button>}

@@ -9,7 +9,14 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { gzip as gzipCallback } from 'node:zlib';
 
 import { loadEnv } from './env.js';
-import { loadUpworkJobs, refreshUpworkJobs, suggestCoverLetterForJob } from './upwork/store.js';
+import {
+  JOB_CLASSIFICATIONS,
+  loadUpworkJobs,
+  normalizeJobClassification,
+  refreshUpworkJobs,
+  suggestCoverLetterForJob,
+  updateUpworkJobClassification,
+} from './upwork/store.js';
 import { refineGoalWithPi } from './planning/goalAssistant.js';
 import {
   createPlanningGoal,
@@ -62,6 +69,7 @@ const SERVER_ACTIONS = [
   { id: 'planning.goal.delete', method: 'DELETE', path: '/api/planning/goals/{goalId}', description: 'Delete a planning goal.' },
   { id: 'upwork.jobs.list', method: 'GET', path: '/api/upwork/jobs', description: 'List cached Upwork jobs.' },
   { id: 'upwork.jobs.refresh', method: 'POST', path: '/api/upwork/jobs/refresh', description: 'Refresh and return Upwork jobs.' },
+  { id: 'upwork.jobs.classify', method: 'PATCH', path: '/api/upwork/jobs/{jobId}/classification', description: 'Classify a cached Upwork job.' },
 ];
 
 function sendJson(res, status, value, headers = {}) {
@@ -170,6 +178,27 @@ async function handleApi(req, res) {
   }
   if (req.method === 'POST' && url.pathname === '/api/upwork/jobs/refresh') {
     return sendJson(res, 200, await refreshUpworkJobs());
+  }
+  const classificationMatch = url.pathname.match(/^\/api\/upwork\/jobs\/([^/]+)\/classification$/);
+  if (req.method === 'PATCH' && classificationMatch) {
+    const body = await readRequestJson(req);
+    if (!body || !Object.hasOwn(body, 'classification')) {
+      return sendJson(res, 400, { error: 'classification is required' });
+    }
+    try {
+      const classification = normalizeJobClassification(body.classification);
+      return sendJson(res, 200, await updateUpworkJobClassification(
+        decodeURIComponent(classificationMatch[1]),
+        classification,
+      ));
+    } catch (error) {
+      if (error.message.startsWith('classification must be one of')) {
+        return sendJson(res, 400, {
+          error: `${error.message}; use ${JOB_CLASSIFICATIONS.APPLIED}, ${JOB_CLASSIFICATIONS.NOT_INTERESTED}, or null`,
+        });
+      }
+      throw error;
+    }
   }
   const coverLetterMatch = url.pathname.match(/^\/api\/upwork\/jobs\/([^/]+)\/cover-letter$/);
   if (req.method === 'POST' && coverLetterMatch) {

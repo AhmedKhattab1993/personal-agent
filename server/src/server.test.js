@@ -60,6 +60,7 @@ test('protects the server and exposes feature-scoped actions', async () => {
       { id: 'planning.goal.delete', method: 'DELETE', path: '/api/planning/goals/{goalId}' },
       { id: 'upwork.jobs.list', method: 'GET', path: '/api/upwork/jobs' },
       { id: 'upwork.jobs.refresh', method: 'POST', path: '/api/upwork/jobs/refresh' },
+      { id: 'upwork.jobs.classify', method: 'PATCH', path: '/api/upwork/jobs/{jobId}/classification' },
     ]);
   });
 });

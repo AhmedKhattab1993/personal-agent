@@ -12,6 +12,11 @@ const APP_ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const DATA_ROOT = join(APP_ROOT, 'data');
 const CACHE_PATH = join(DATA_ROOT, 'upwork-jobs.json');
 const DEFAULT_LOOKBACK_HOURS = 72;
+export const JOB_CLASSIFICATIONS = Object.freeze({
+  APPLIED: 'applied',
+  NOT_INTERESTED: 'not_interested',
+});
+const VALID_JOB_CLASSIFICATIONS = new Set(Object.values(JOB_CLASSIFICATIONS));
 const EXCLUDED_CLIENT_COUNTRIES = new Set([
   'india',
   'ind',
@@ -69,6 +74,18 @@ function isWithinLookback(job, cutoff) {
   return published ? published > cutoff : false;
 }
 
+export function normalizeJobClassification(value) {
+  if (value === undefined || value === null || value === '') return null;
+  if (!VALID_JOB_CLASSIFICATIONS.has(value)) {
+    throw new Error(`classification must be one of ${[...VALID_JOB_CLASSIFICATIONS].join(', ')}, got ${value}`);
+  }
+  return value;
+}
+
+function shouldRetainJob(job, cutoff) {
+  return normalizeJobClassification(job.classification) !== null || isWithinLookback(job, cutoff);
+}
+
 function newestPublishedDate(records) {
   let newest = null;
   for (const record of records) {
@@ -82,7 +99,7 @@ function shouldBackfillWindow(existingState) {
   return existingState.summary?.source !== POSITIONING_SEARCH_SOURCE;
 }
 
-function compactJob(job, laneInfo, existing = null, now = new Date().toISOString()) {
+export function compactJob(job, laneInfo, existing = null, now = new Date().toISOString()) {
   const client = job.client ?? {};
   const location = client.location ?? {};
   const fixedBudget = moneyDisplay(job.amount);
@@ -124,6 +141,7 @@ function compactJob(job, laneInfo, existing = null, now = new Date().toISOString
       city: location.city ?? null,
     },
     status: existing ? 'active' : 'new',
+    classification: normalizeJobClassification(existing?.classification),
     firstSeenAt: existing?.firstSeenAt ?? now,
     lastSeenAt: now,
     seenCount: (existing?.seenCount ?? 0) + 1,
@@ -142,10 +160,13 @@ function normalizeSuggestedCoverLetter(suggestedCoverLetter, job = null) {
 function summarize(records, source, fetchedCount = null, extras = {}) {
   const laneCounts = Object.fromEntries(LANES.map((lane) => [lane.label, 0]));
   const statusCounts = { new: 0, active: 0, stale: 0 };
+  const classificationCounts = { open: 0, applied: 0, not_interested: 0 };
   let piClassifiedCount = 0;
   for (const record of records) {
     laneCounts[record.lane] = (laneCounts[record.lane] ?? 0) + 1;
     statusCounts[record.status] = (statusCounts[record.status] ?? 0) + 1;
+    const classification = normalizeJobClassification(record.classification);
+    classificationCounts[classification ?? 'open'] += 1;
     if (record.piClassification) piClassifiedCount += 1;
   }
   return {
@@ -161,6 +182,7 @@ function summarize(records, source, fetchedCount = null, extras = {}) {
     },
     laneCounts,
     statusCounts,
+    classificationCounts,
     ...extras,
   };
 }
@@ -188,9 +210,10 @@ function normalizeUpworkState(state) {
   const cutoff = lookbackCutoffDate(now);
   const jobs = sortRecords((state.jobs ?? [])
     .filter((job) => !isExcludedCompactJob(job))
-    .filter((job) => isWithinLookback(job, cutoff))
+    .filter((job) => shouldRetainJob(job, cutoff))
     .map((job) => ({
       ...job,
+      classification: normalizeJobClassification(job.classification),
       suggestedCoverLetter: normalizeSuggestedCoverLetter(job.suggestedCoverLetter, job),
     })));
   return {
@@ -222,7 +245,7 @@ export async function refreshUpworkJobs() {
   const cutoff = lookbackCutoffDate(now);
   const retainedExisting = (existingState.jobs ?? [])
     .filter((job) => !isExcludedCompactJob(job))
-    .filter((job) => isWithinLookback(job, cutoff));
+    .filter((job) => shouldRetainJob(job, cutoff));
   const existingById = new Map(retainedExisting.map((job) => [job.id, job]));
   const newestExisting = newestPublishedDate(retainedExisting);
   const fullWindowBackfill = shouldBackfillWindow(existingState) || !newestExisting || newestExisting < cutoff;
@@ -288,6 +311,32 @@ export async function suggestCoverLetterForJob(jobId, options = {}) {
     suggestedCoverLetter,
     job: updatedJob,
   };
+}
+
+export async function updateUpworkJobClassification(jobId, classification) {
+  const normalizedClassification = normalizeJobClassification(classification);
+  const state = await loadUpworkJobs();
+  const jobs = state.jobs ?? [];
+  const index = jobs.findIndex((job) => String(job.id) === String(jobId));
+  if (index === -1) {
+    throw new Error(`Upwork job not found: ${jobId}`);
+  }
+
+  const updatedJobs = [...jobs];
+  updatedJobs[index] = {
+    ...jobs[index],
+    classification: normalizedClassification,
+  };
+  const updatedState = {
+    ...state,
+    jobs: updatedJobs,
+    summary: summarize(updatedJobs, state.summary?.source ?? 'cache', state.summary?.fetchedCount ?? null, {
+      windowStartDateTime: state.summary?.windowStartDateTime,
+      windowEndDateTime: state.summary?.windowEndDateTime,
+    }),
+  };
+  await writeJson(CACHE_PATH, updatedState);
+  return updatedState;
 }
 
 function compactJobToRawJob(job) {

@@ -107,6 +107,11 @@ lanes, not names for the Personal Agent.
 npm run upwork:reclassify
 ```
 
+The Upwork view also lets you mark jobs as **Applied** or **Not interested**.
+Those classifications are stored with each cached job, survive refreshes, and
+are available through the corresponding saved views instead of the default
+open-jobs view.
+
 ### Export proposal history
 
 ```sh
