@@ -1,4 +1,5 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
+import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -33,7 +34,14 @@ async function readJson(path, fallback) {
 
 async function writeJson(path, value) {
   await mkdir(dirname(path), { recursive: true });
-  await writeFile(path, `${JSON.stringify(value, null, 2)}\n`);
+  const tempPath = `${path}.${process.pid}.${randomUUID()}.tmp`;
+  try {
+    await writeFile(tempPath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
+    await rename(tempPath, path);
+  } catch (error) {
+    await unlink(tempPath).catch(() => {});
+    throw error;
+  }
 }
 
 function moneyDisplay(value) {
