@@ -159,6 +159,16 @@ test('lets strong non-economic signals rank a missing-budget opportunity', () =>
   assert.equal(estimateOpportunity(strongUnrated, REFERENCE_TIME).rankable, true);
 });
 
+test('sorts highest estimated economics first and puts unknown economics last', () => {
+  const high = completeJob({ id: 'high', budget: '80.0/hr' });
+  const low = completeJob({ id: 'low', budget: '20.0/hr' });
+  const unknown = completeJob({ id: 'unknown', budget: null });
+
+  const sorted = sortJobsForDisplay([unknown, low, high], 'economic', REFERENCE_TIME);
+
+  assert.deepEqual(sorted.map((job) => job.id), ['high', 'low', 'unknown']);
+});
+
 test('uses recency as the final tie-breaker', () => {
   const common = completeJob({ budget: null, totalApplicants: null });
   const sorted = sortJobsForDisplay([

@@ -270,7 +270,7 @@ function UpworkView({ navigation }) {
               {TIME_WINDOWS.map((hours) => <button key={hours} className={timeWindowHours === String(hours) ? 'active' : ''} onClick={() => setTimeWindowHours(String(hours))}>{hours}h</button>)}
             </div>}
             <Select aria-label="Sort opportunities" value={sortMode} onChange={(event) => setSortMode(event.target.value)}>
-              <option value="opportunity">Best apply priority</option><option value="newest">Most recent</option>
+              <option value="opportunity">Best apply priority</option><option value="economic">Highest economics</option><option value="newest">Most recent</option>
             </Select>
             {activeFilterCount > 0 && <button className="clear-filters" onClick={resetFilters}>Reset {activeFilterCount}</button>}
           </div>

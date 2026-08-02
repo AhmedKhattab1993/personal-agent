@@ -287,9 +287,25 @@ function compareOpportunity(a, b, referenceTime) {
   return compareNewest(a, b);
 }
 
+function compareEconomic(a, b) {
+  const aEconomic = estimateEconomicValue(a);
+  const bEconomic = estimateEconomicValue(b);
+  const aRankable = Number.isFinite(aEconomic.hourlyEquivalent);
+  const bRankable = Number.isFinite(bEconomic.hourlyEquivalent);
+
+  if (aRankable !== bRankable) return bRankable - aRankable;
+  if (aRankable) {
+    const economicDiff = bEconomic.hourlyEquivalent - aEconomic.hourlyEquivalent;
+    if (economicDiff !== 0) return economicDiff;
+  }
+
+  return compareNewest(a, b);
+}
+
 export function sortJobsForDisplay(jobs, sortMode, referenceTime = null) {
   const records = [...jobs];
   if (sortMode === 'opportunity') return records.sort((a, b) => compareOpportunity(a, b, referenceTime));
+  if (sortMode === 'economic') return records.sort(compareEconomic);
   return records.sort(compareNewest);
 }
 
