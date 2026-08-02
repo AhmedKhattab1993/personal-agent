@@ -347,9 +347,11 @@ function UpworkView({ navigation }) {
             <div className="dialog-summary"><span><CircleDollarSign /> {selectedJob.budget || 'Budget not stated'}</span><span><Users /> {selectedJob.totalApplicants ?? '—'} applicants</span><span><MapPin /> {selectedJob.client?.country || 'Unknown location'}</span><Badge className={`score-chip score-${scoreTone(selectedOpportunity)}`}><Gauge /> {formatOpportunityBadge(selectedOpportunity)}</Badge></div>
             <div className="dialog-classification-row">
               <div><span className="section-kicker">Quick classification</span><strong>{selectedJob.classification ? `Saved as ${selectedJob.classification === JOB_CLASSIFICATIONS.APPLIED ? 'Applied' : 'Not interested'}` : 'Keep this job organized while you review it.'}</strong></div>
-              <div className="classification-actions dialog-classification-actions" aria-label={`Classify ${selectedJob.title}`}>
+              <div className="classification-actions dialog-classification-actions" aria-label={`Actions for ${selectedJob.title}`}>
                 <Button variant="outline" size="sm" className={`classification-action applied ${selectedJob.classification === JOB_CLASSIFICATIONS.APPLIED ? 'classification-active' : ''}`} aria-pressed={selectedJob.classification === JOB_CLASSIFICATIONS.APPLIED} disabled={classifyingJobId === selectedJob.id} onClick={() => updateJobClassification(selectedJob, JOB_CLASSIFICATIONS.APPLIED)}>Applied</Button>
                 <Button variant="outline" size="sm" className={`classification-action not-interested ${selectedJob.classification === JOB_CLASSIFICATIONS.NOT_INTERESTED ? 'classification-active' : ''}`} aria-pressed={selectedJob.classification === JOB_CLASSIFICATIONS.NOT_INTERESTED} disabled={classifyingJobId === selectedJob.id} onClick={() => updateJobClassification(selectedJob, JOB_CLASSIFICATIONS.NOT_INTERESTED)}>Not interested</Button>
+                {selectedJob.url && <Button variant="outline" size="sm" className="dialog-apply-action" onClick={() => window.open(selectedJob.url, '_blank', 'noopener,noreferrer')}>Open on Upwork <ArrowUpRight /></Button>}
+                {selectedJob.suggestedCoverLetter?.text && <Button variant="outline" size="sm" className={`dialog-copy-action ${copied ? 'copied' : ''}`} onClick={copyProposal}><Clipboard /> {copied ? 'Copied' : 'Copy'}</Button>}
               </div>
             </div>
           </DialogHeader>
@@ -361,7 +363,6 @@ function UpworkView({ navigation }) {
             </section>}
             <section className="proposal-panel">
               <div className="proposal-header"><div><span className="section-kicker">Ready to personalize</span><h3><MessageSquareText /> Proposal draft</h3></div><div>
-                {selectedJob.suggestedCoverLetter?.text && <Button variant="outline" size="sm" onClick={copyProposal}><Clipboard /> {copied ? 'Copied' : 'Copy'}</Button>}
                 <Button variant="outline" size="sm" disabled={coverLetterLoading} onClick={() => loadSuggestedCoverLetter(selectedJob, true)}><RefreshCcw className={coverLetterLoading ? 'animate-spin' : ''} /> Regenerate</Button>
               </div></div>
               {coverLetterLoading && !selectedJob.suggestedCoverLetter?.text && <p className="muted-copy">Agent is drafting your response…</p>}
@@ -371,7 +372,7 @@ function UpworkView({ navigation }) {
             </section>
             <section className="description-panel"><span className="section-kicker">Full brief</span><h3><FileText /> Job description</h3><div>{selectedJob.description || 'No description available.'}</div></section>
           </DialogBody>
-          <DialogFooter><Button variant="ghost" onClick={() => setSelectedJob(null)}>Close</Button>{selectedJob.url && <Button onClick={() => window.open(selectedJob.url, '_blank', 'noopener,noreferrer')}>Open on Upwork <ArrowUpRight /></Button>}</DialogFooter>
+          <DialogFooter><Button variant="ghost" onClick={() => setSelectedJob(null)}>Close</Button></DialogFooter>
           </DialogContent>
           <button
             className="dialog-nav dialog-nav-next"

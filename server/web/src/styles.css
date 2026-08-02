@@ -452,7 +452,7 @@ svg { width: 1rem; height: 1rem; stroke-width: 2; }
 }
 .dialog-classification-row > div:first-child { display: flex; min-width: 0; flex-direction: column; gap: 5px; }
 .dialog-classification-row strong { color: var(--fg-secondary); font-size: .8125rem; font-weight: 500; }
-.dialog-classification-actions { gap: 8px; }
+.dialog-classification-actions { flex-wrap: wrap; gap: 8px; }
 .dialog-classification-actions .ui-button { min-width: 100px; height: 2.25rem; font-size: .75rem; font-weight: 600; }
 .dialog-classification-actions .ui-button.classification-action.applied {
   border-color: rgba(80,227,194,.45); color: var(--success); background: rgba(80,227,194,.08);
@@ -467,6 +467,13 @@ svg { width: 1rem; height: 1rem; stroke-width: 2; }
 .dialog-classification-actions .ui-button.classification-action.not-interested:hover,
 .dialog-classification-actions .ui-button.classification-action.not-interested.classification-active {
   border-color: rgba(255,77,79,.7); color: #ffd1d2; background: rgba(255,77,79,.16);
+}
+.dialog-classification-actions .ui-button.dialog-apply-action,
+.dialog-classification-actions .ui-button.dialog-copy-action { color: var(--fg); background: var(--surface); }
+.dialog-classification-actions .ui-button.dialog-apply-action:hover,
+.dialog-classification-actions .ui-button.dialog-copy-action:hover { border-color: var(--border-hover); background: #202020; }
+.dialog-classification-actions .ui-button.dialog-copy-action.copied {
+  border-color: rgba(80,227,194,.55); color: var(--success); background: rgba(80,227,194,.1);
 }
 .dialog-nav {
   position: absolute; top: 50%; z-index: 2; display: grid; place-items: center;
@@ -1103,7 +1110,7 @@ svg { width: 1rem; height: 1rem; stroke-width: 2; }
   .priority-breakdown > div { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .dialog-classification-row { align-items: flex-start; flex-direction: column; }
   .dialog-classification-actions { width: 100%; }
-  .dialog-classification-actions .ui-button { flex: 1; }
+  .dialog-classification-actions .ui-button { min-width: 0; flex: 1 1 calc(50% - 4px); }
   .dialog-nav { width: 36px; height: 36px; }
   .dialog-nav-previous { left: 8px; }
   .dialog-nav-next { right: 8px; }
