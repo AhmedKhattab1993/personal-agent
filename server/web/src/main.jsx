@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   AlertCircle, ArrowRight, ArrowUpRight, Bot, BriefcaseBusiness,
-  ChevronRight, CircleDollarSign, Clipboard, Clock3, DatabaseZap, FileText,
+  ChevronLeft, ChevronRight, CircleDollarSign, Clipboard, Clock3, DatabaseZap, FileText,
   Columns3, Gauge, LayoutDashboard, MapPin, MessageSquareText, RefreshCcw, Search,
   ShieldCheck, SlidersHorizontal, Sparkles, TrendingUp, Users, X,
 } from 'lucide-react';
@@ -16,6 +16,7 @@ import {
   formatEconomicValue, formatOpportunityTitle, sortJobsForDisplay,
 } from './opportunityScore.js';
 import { copyTextToClipboard } from './clipboard.js';
+import { findAdjacentJob } from './jobNavigation.js';
 import PlanningBoard from './planningBoard.jsx';
 import './styles.css';
 
@@ -199,6 +200,8 @@ function UpworkView({ navigation }) {
     const haystack = [job.title, job.description, job.lane, job.piClassification?.rationale, ...(job.skills ?? []), ...(job.laneMatches ?? [])].join(' ').toLowerCase();
     return haystack.includes(query.trim().toLowerCase());
   }), sortMode, referenceTime), [timeWindowJobs, lane, query, sortMode, referenceTime]);
+  const previousJob = findAdjacentJob(filteredJobs, selectedJob?.id, -1);
+  const nextJob = findAdjacentJob(filteredJobs, selectedJob?.id, 1);
 
   const laneCounts = useMemo(() => countLanes(timeWindowJobs), [timeWindowJobs]);
   const newCount = timeWindowJobs.filter((job) => job.status === 'new').length;
@@ -209,6 +212,10 @@ function UpworkView({ navigation }) {
   const activeFilterCount = Number(classificationView !== 'open') + Number(lane !== 'all') + Number(timeWindowHours !== '72') + Number(sortMode !== 'opportunity') + Number(Boolean(query));
   function resetFilters() {
     setQuery(''); setLane('all'); setClassificationView('open'); setTimeWindowHours('72'); setSortMode('opportunity');
+  }
+  function navigateSelectedJob(direction) {
+    const adjacentJob = findAdjacentJob(filteredJobs, selectedJob?.id, direction);
+    if (adjacentJob) setSelectedJob(adjacentJob);
   }
 
   return (
@@ -323,12 +330,28 @@ function UpworkView({ navigation }) {
       </div>
 
       <Dialog open={Boolean(selectedJob)} onClick={() => setSelectedJob(null)}>
-        {selectedJob && <DialogContent className="job-dialog" onClick={(event) => event.stopPropagation()}>
+        {selectedJob && <>
+          <button
+            className="dialog-nav dialog-nav-previous"
+            type="button"
+            aria-label="Previous opportunity"
+            title="Previous opportunity"
+            disabled={!previousJob}
+            onClick={(event) => { event.stopPropagation(); navigateSelectedJob(-1); }}
+          ><ChevronLeft /></button>
+          <DialogContent className="job-dialog" onClick={(event) => event.stopPropagation()}>
           <DialogHeader className="dialog-heading">
             <button className="dialog-close" onClick={() => setSelectedJob(null)} aria-label="Close"><X /></button>
             <div className="job-labels"><Badge className={`lane-badge ${laneMeta(selectedJob.laneId).accent}`}>{laneMeta(selectedJob.laneId).label}</Badge><span className="published"><Clock3 /> {formatDate(selectedJob.publishedDateTime)}</span></div>
             <DialogTitle>{selectedJob.title}</DialogTitle>
             <div className="dialog-summary"><span><CircleDollarSign /> {selectedJob.budget || 'Budget not stated'}</span><span><Users /> {selectedJob.totalApplicants ?? '—'} applicants</span><span><MapPin /> {selectedJob.client?.country || 'Unknown location'}</span><Badge className={`score-chip score-${scoreTone(selectedOpportunity)}`}><Gauge /> {formatOpportunityBadge(selectedOpportunity)}</Badge></div>
+            <div className="dialog-classification-row">
+              <div><span className="section-kicker">Quick classification</span><strong>{selectedJob.classification ? `Saved as ${selectedJob.classification === JOB_CLASSIFICATIONS.APPLIED ? 'Applied' : 'Not interested'}` : 'Keep this job organized while you review it.'}</strong></div>
+              <div className="classification-actions dialog-classification-actions" aria-label={`Classify ${selectedJob.title}`}>
+                <Button variant="outline" size="sm" className={`classification-action applied ${selectedJob.classification === JOB_CLASSIFICATIONS.APPLIED ? 'classification-active' : ''}`} aria-pressed={selectedJob.classification === JOB_CLASSIFICATIONS.APPLIED} disabled={classifyingJobId === selectedJob.id} onClick={() => updateJobClassification(selectedJob, JOB_CLASSIFICATIONS.APPLIED)}>Applied</Button>
+                <Button variant="outline" size="sm" className={`classification-action not-interested ${selectedJob.classification === JOB_CLASSIFICATIONS.NOT_INTERESTED ? 'classification-active' : ''}`} aria-pressed={selectedJob.classification === JOB_CLASSIFICATIONS.NOT_INTERESTED} disabled={classifyingJobId === selectedJob.id} onClick={() => updateJobClassification(selectedJob, JOB_CLASSIFICATIONS.NOT_INTERESTED)}>Not interested</Button>
+              </div>
+            </div>
           </DialogHeader>
           <DialogBody className="dialog-body">
             {selectedJob.piClassification?.rationale && <div className="pi-insight"><span><Sparkles /> Agent signal</span><p>{selectedJob.piClassification.rationale}</p></div>}
@@ -336,13 +359,6 @@ function UpworkView({ navigation }) {
               <header><div><span>Apply priority</span><strong>{Math.round(selectedOpportunity.score)}/100</strong></div><small>{formatEconomicValue(selectedOpportunity.economic)} · {selectedOpportunity.confidence} confidence · risk −{Math.round(selectedOpportunity.riskPenalty)}</small></header>
               <div>{PRIORITY_COMPONENTS.map(([key, label]) => <div key={key}><span>{label}</span><strong>{Math.round(selectedOpportunity.components[key])}</strong></div>)}</div>
             </section>}
-            <section className="classification-panel">
-              <div><span className="section-kicker">Quick classification</span><strong>{selectedJob.classification ? `Saved as ${selectedJob.classification === JOB_CLASSIFICATIONS.APPLIED ? 'Applied' : 'Not interested'}` : 'Keep this job organized while you review it.'}</strong></div>
-              <div className="classification-actions">
-                <Button variant="outline" size="sm" className={selectedJob.classification === JOB_CLASSIFICATIONS.APPLIED ? 'classification-active applied' : ''} aria-pressed={selectedJob.classification === JOB_CLASSIFICATIONS.APPLIED} disabled={classifyingJobId === selectedJob.id} onClick={() => updateJobClassification(selectedJob, JOB_CLASSIFICATIONS.APPLIED)}>Applied</Button>
-                <Button variant="outline" size="sm" className={selectedJob.classification === JOB_CLASSIFICATIONS.NOT_INTERESTED ? 'classification-active not-interested' : ''} aria-pressed={selectedJob.classification === JOB_CLASSIFICATIONS.NOT_INTERESTED} disabled={classifyingJobId === selectedJob.id} onClick={() => updateJobClassification(selectedJob, JOB_CLASSIFICATIONS.NOT_INTERESTED)}>Not interested</Button>
-              </div>
-            </section>
             <section className="proposal-panel">
               <div className="proposal-header"><div><span className="section-kicker">Ready to personalize</span><h3><MessageSquareText /> Proposal draft</h3></div><div>
                 {selectedJob.suggestedCoverLetter?.text && <Button variant="outline" size="sm" onClick={copyProposal}><Clipboard /> {copied ? 'Copied' : 'Copy'}</Button>}
@@ -356,7 +372,16 @@ function UpworkView({ navigation }) {
             <section className="description-panel"><span className="section-kicker">Full brief</span><h3><FileText /> Job description</h3><div>{selectedJob.description || 'No description available.'}</div></section>
           </DialogBody>
           <DialogFooter><Button variant="ghost" onClick={() => setSelectedJob(null)}>Close</Button>{selectedJob.url && <Button onClick={() => window.open(selectedJob.url, '_blank', 'noopener,noreferrer')}>Open on Upwork <ArrowUpRight /></Button>}</DialogFooter>
-        </DialogContent>}
+          </DialogContent>
+          <button
+            className="dialog-nav dialog-nav-next"
+            type="button"
+            aria-label="Next opportunity"
+            title="Next opportunity"
+            disabled={!nextJob}
+            onClick={(event) => { event.stopPropagation(); navigateSelectedJob(1); }}
+          ><ChevronRight /></button>
+        </>}
       </Dialog>
     </main>
   );

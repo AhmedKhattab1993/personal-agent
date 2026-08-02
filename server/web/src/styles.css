@@ -446,6 +446,41 @@ svg { width: 1rem; height: 1rem; stroke-width: 2; }
 .score-chip.score-high { border-color: rgba(80,227,194,.4) !important; color: var(--success) !important; background: rgba(80,227,194,.08) !important; }
 .score-chip.score-medium { border-color: rgba(245,166,35,.4) !important; color: var(--warning) !important; background: rgba(245,166,35,.08) !important; }
 .score-chip.score-low, .score-chip.score-muted { color: var(--fg-tertiary) !important; background: var(--surface) !important; }
+.dialog-classification-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border);
+}
+.dialog-classification-row > div:first-child { display: flex; min-width: 0; flex-direction: column; gap: 5px; }
+.dialog-classification-row strong { color: var(--fg-secondary); font-size: .8125rem; font-weight: 500; }
+.dialog-classification-actions { gap: 8px; }
+.dialog-classification-actions .ui-button { min-width: 100px; height: 2.25rem; font-size: .75rem; font-weight: 600; }
+.dialog-classification-actions .ui-button.classification-action.applied {
+  border-color: rgba(80,227,194,.45); color: var(--success); background: rgba(80,227,194,.08);
+}
+.dialog-classification-actions .ui-button.classification-action.applied:hover,
+.dialog-classification-actions .ui-button.classification-action.applied.classification-active {
+  border-color: rgba(80,227,194,.7); color: #9ff5df; background: rgba(80,227,194,.16);
+}
+.dialog-classification-actions .ui-button.classification-action.not-interested {
+  border-color: rgba(255,77,79,.45); color: #ffb3b4; background: rgba(255,77,79,.08);
+}
+.dialog-classification-actions .ui-button.classification-action.not-interested:hover,
+.dialog-classification-actions .ui-button.classification-action.not-interested.classification-active {
+  border-color: rgba(255,77,79,.7); color: #ffd1d2; background: rgba(255,77,79,.16);
+}
+.dialog-nav {
+  position: absolute; top: 50%; z-index: 2; display: grid; place-items: center;
+  width: 42px; height: 42px; transform: translateY(-50%);
+  border: 1px solid var(--border-strong); border-radius: 999px;
+  color: var(--fg-secondary); background: rgba(10,10,10,.94);
+  box-shadow: 0 8px 24px rgba(0,0,0,.35); transition: color .15s ease, border-color .15s ease, background .15s ease, opacity .15s ease;
+}
+.dialog-nav:hover:not(:disabled) { border-color: var(--border-hover); color: var(--fg); background: var(--surface); }
+.dialog-nav:focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; }
+.dialog-nav:disabled { cursor: default; opacity: .28; }
+.dialog-nav svg { width: 20px; height: 20px; }
+.dialog-nav-previous { left: max(12px, calc(50% - 520px)); }
+.dialog-nav-next { right: max(12px, calc(50% - 520px)); }
 .dialog-body { display: grid; gap: 18px; max-height: 60vh !important; padding: 22px 32px !important; }
 .priority-breakdown {
   display: grid; gap: 13px; padding: 15px 16px;
@@ -463,12 +498,6 @@ svg { width: 1rem; height: 1rem; stroke-width: 2; }
 }
 .priority-breakdown > div span { overflow: hidden; color: var(--fg-tertiary); font-size: .6875rem; text-overflow: ellipsis; }
 .priority-breakdown > div strong { color: var(--fg); font-size: .75rem; }
-.classification-panel {
-  display: flex; align-items: center; justify-content: space-between; gap: 16px;
-  padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-elevated);
-}
-.classification-panel > div:first-child { display: flex; min-width: 0; flex-direction: column; gap: 5px; }
-.classification-panel strong { color: var(--fg-secondary); font-size: .8125rem; font-weight: 500; }
 .pi-insight {
   display: grid; grid-template-columns: 110px 1fr; gap: 18px; padding: 14px 16px;
   border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-elevated);
@@ -1072,7 +1101,12 @@ svg { width: 1rem; height: 1rem; stroke-width: 2; }
   .priority-breakdown > header { align-items: flex-start; flex-direction: column; gap: 5px; }
   .priority-breakdown > header small { text-align: left; }
   .priority-breakdown > div { grid-template-columns: repeat(2,minmax(0,1fr)); }
-  .classification-panel { align-items: flex-start; flex-direction: column; }
+  .dialog-classification-row { align-items: flex-start; flex-direction: column; }
+  .dialog-classification-actions { width: 100%; }
+  .dialog-classification-actions .ui-button { flex: 1; }
+  .dialog-nav { width: 36px; height: 36px; }
+  .dialog-nav-previous { left: 8px; }
+  .dialog-nav-next { right: 8px; }
   .pi-insight { grid-template-columns: 1fr; gap: 5px; }
   .proposal-header { align-items: flex-start; flex-direction: column; }
 
