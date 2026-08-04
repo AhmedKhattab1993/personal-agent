@@ -219,8 +219,6 @@ function riskPenalty(job, economic) {
   if (budget?.type === 'hourly' && budget.min > 0) {
     penalty += clamp((budget.max / budget.min - 2) * 2, 0, 8);
   }
-  if (job?.client?.verificationStatus !== 'VERIFIED') penalty += 3;
-  if ((numberValue(job?.client?.postedJobs) ?? 0) === 0) penalty += 2;
   if (String(job?.description ?? '').trim().length < 200) penalty += 2;
 
   return clamp(penalty, 0, MAX_RISK_PENALTY);

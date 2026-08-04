@@ -109,9 +109,11 @@ test('keeps client quality out of the apply-priority total', () => {
     client: {
       ...completeJob().client,
       hires: 0,
+      postedJobs: 0,
       spent: '0',
       feedback: 0,
       reviews: 0,
+      verificationStatus: 'UNVERIFIED',
     },
   }), REFERENCE_TIME);
 
