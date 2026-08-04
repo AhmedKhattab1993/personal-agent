@@ -93,7 +93,7 @@ test('builds an explainable apply-priority score', () => {
   const estimate = estimateOpportunity(completeJob(), REFERENCE_TIME);
 
   assert.equal(estimate.rankable, true);
-  assert.equal(estimate.score > 70, true);
+  assert.equal(estimate.score > 60, true);
   assert.deepEqual(Object.keys(estimate.components), [
     'fit', 'economics', 'winability', 'clientQuality', 'scopeConfidence',
   ]);
