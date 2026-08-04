@@ -93,7 +93,7 @@ test('builds an explainable apply-priority score', () => {
   const estimate = estimateOpportunity(completeJob(), REFERENCE_TIME);
 
   assert.equal(estimate.rankable, true);
-  assert.equal(estimate.score > 60, true);
+  assert.equal(estimate.score > 50, true);
   assert.deepEqual(Object.keys(estimate.components), [
     'fit', 'economics', 'winability', 'clientQuality', 'scopeConfidence',
   ]);
@@ -101,6 +101,22 @@ test('builds an explainable apply-priority score', () => {
   assert.equal(estimate.confidence, 'high');
   assert.match(formatOpportunityBadge(estimate), /^Priority \d+\/100 · \$55\/hr est$/);
   assert.equal(formatEconomicValue(estimate.economic), '$55/hr est');
+});
+
+test('keeps client quality out of the apply-priority total', () => {
+  const strongClient = estimateOpportunity(completeJob(), REFERENCE_TIME);
+  const weakClient = estimateOpportunity(completeJob({
+    client: {
+      ...completeJob().client,
+      hires: 0,
+      spent: '0',
+      feedback: 0,
+      reviews: 0,
+    },
+  }), REFERENCE_TIME);
+
+  assert.notEqual(strongClient.components.clientQuality, weakClient.components.clientQuality);
+  assert.equal(strongClient.score, weakClient.score);
 });
 
 test('ranks a focused low-competition opportunity above a crowded wide range', () => {

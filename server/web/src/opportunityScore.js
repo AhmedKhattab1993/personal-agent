@@ -6,8 +6,7 @@ const MAX_RISK_PENALTY = 15;
 const PRIORITY_WEIGHTS = Object.freeze({
   fit: 0.15,
   economics: 0.10,
-  winability: 0.45,
-  clientQuality: 0.25,
+  winability: 0.70,
   scopeConfidence: 0.05,
 });
 
