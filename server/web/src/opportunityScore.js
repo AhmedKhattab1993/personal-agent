@@ -2,6 +2,7 @@ const UNKNOWN_EFFORT_HOURS = 160;
 const FIXED_EFFORT_BUFFER = 1.5;
 const ECONOMIC_RATE_CEILING = 60;
 const MAX_RISK_PENALTY = 15;
+const MAX_VISIBLE_APPLICANTS = 10;
 
 const PRIORITY_WEIGHTS = Object.freeze({
   fit: 0.15,
@@ -304,6 +305,14 @@ export function sortJobsForDisplay(jobs, sortMode, referenceTime = null) {
   if (sortMode === 'opportunity') return records.sort((a, b) => compareOpportunity(a, b, referenceTime));
   if (sortMode === 'economic') return records.sort(compareEconomic);
   return records.sort(compareNewest);
+}
+
+export function filterJobsByApplicantCount(jobs) {
+  return jobs.filter((job) => (
+    Number.isInteger(job?.totalApplicants)
+    && job.totalApplicants >= 0
+    && job.totalApplicants < MAX_VISIBLE_APPLICANTS
+  ));
 }
 
 export function filterJobsByPublishedHours(jobs, hours, referenceTime) {

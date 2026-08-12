@@ -12,7 +12,7 @@ import {
   DialogFooter, DialogHeader, DialogTitle, Input, Select,
 } from './components/ui.jsx';
 import {
-  estimateOpportunity, filterJobsByPublishedHours, formatOpportunityBadge,
+  estimateOpportunity, filterJobsByApplicantCount, filterJobsByPublishedHours, formatOpportunityBadge,
   formatEconomicValue, formatOpportunityTitle, sortJobsForDisplay,
 } from './opportunityScore.js';
 import { copyTextToClipboard } from './clipboard.js';
@@ -180,7 +180,12 @@ function UpworkView({ navigation }) {
     if (selectedJob) loadSuggestedCoverLetter(selectedJob).catch((err) => setCoverLetterError(err.message));
   }, [selectedJob?.id]);
 
-  const jobs = data?.jobs ?? [];
+  const jobs = useMemo(() => filterJobsByApplicantCount(data?.jobs ?? []), [data?.jobs]);
+  useEffect(() => {
+    setSelectedJob((current) => (
+      current && !jobs.some((job) => job.id === current.id) ? null : current
+    ));
+  }, [jobs]);
   const referenceTime = data?.summary?.windowEndDateTime ?? data?.summary?.generatedAt ?? new Date().toISOString();
   const viewMeta = CLASSIFICATION_VIEWS.find((view) => view.id === classificationView) ?? CLASSIFICATION_VIEWS[0];
   const savedView = classificationView !== 'open';
@@ -250,7 +255,7 @@ function UpworkView({ navigation }) {
             <p>One focused view of every relevant Upwork signal—ranked by fit, economics, winability, client quality, and scope.</p>
           </div>
           <div className="hero-stats">
-            <div><span>{savedView ? viewMeta.label : 'In radar'}</span><strong>{timeWindowJobs.length}</strong><small>{savedView ? 'all saved jobs' : `last ${timeWindowHours}h`}</small></div>
+            <div><span>{savedView ? viewMeta.label : 'In radar'}</span><strong>{timeWindowJobs.length}</strong><small>{savedView ? 'all saved jobs' : `last ${timeWindowHours}h`} · under 10 applicants</small></div>
             <div><span>Strong priority</span><strong>{strongPriorityCount}</strong><small>70+ apply score</small></div>
             <div><span>{savedView ? 'Saved jobs' : 'New signals'}</span><strong>{savedView ? timeWindowJobs.length : newCount}</strong><small>{savedView ? 'kept for review' : 'unreviewed jobs'}</small></div>
           </div>

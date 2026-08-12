@@ -5,6 +5,7 @@ import {
   estimateEconomicValue,
   estimateEffortHours,
   estimateOpportunity,
+  filterJobsByApplicantCount,
   filterJobsByPublishedHours,
   formatEconomicValue,
   formatOpportunityBadge,
@@ -205,6 +206,23 @@ test('uses recency as the final tie-breaker', () => {
   ], 'opportunity', REFERENCE_TIME);
 
   assert.deepEqual(sorted.map((job) => job.id), ['newer', 'older']);
+});
+
+test('hard-filters jobs to fewer than 10 applicants', () => {
+  const jobs = [
+    { id: 'zero', totalApplicants: 0 },
+    { id: 'nine', totalApplicants: 9 },
+    { id: 'ten', totalApplicants: 10 },
+    { id: 'crowded', totalApplicants: 50 },
+    { id: 'missing', totalApplicants: null },
+    { id: 'invalid', totalApplicants: '5' },
+    { id: 'negative', totalApplicants: -1 },
+  ];
+
+  assert.deepEqual(
+    filterJobsByApplicantCount(jobs).map((job) => job.id),
+    ['zero', 'nine']
+  );
 });
 
 test('filters jobs by selected published-hour window', () => {
