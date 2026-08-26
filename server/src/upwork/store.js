@@ -27,6 +27,9 @@ const EXCLUDED_CLIENT_COUNTRIES = new Set([
   'nigeria',
   'nga',
 ]);
+// Source-stated fixed budgets below this amount are not worth pursuing.
+// Hourly ranges and estimates never trigger the exclusion.
+const MIN_FIXED_BUDGET = 300;
 
 async function readJson(path, fallback) {
   if (!existsSync(path)) return fallback;
@@ -65,12 +68,35 @@ function isExcludedCountry(country) {
   return EXCLUDED_CLIENT_COUNTRIES.has(normalizeCountry(country));
 }
 
-function isExcludedRawJob(job) {
-  return isExcludedCountry(job.client?.location?.country);
+const HOURLY_BUDGET_PATTERN = /\/\s*hr\b|per\s+hour|hourly/i;
+
+/** Source-stated fixed budget from a raw Upwork posting, or null. */
+function rawFixedBudgetValue(amount) {
+  if (!moneyDisplay(amount)) return null;
+  const value = Number(amount.rawValue);
+  return Number.isFinite(value) && value > 0 ? value : null;
 }
 
-function isExcludedCompactJob(job) {
-  return isExcludedCountry(job.client?.country);
+/** Source-stated fixed budget from a compact cached job's budget string, or null. */
+function compactFixedBudgetValue(budget) {
+  const text = String(budget ?? '').trim();
+  if (!text || HOURLY_BUDGET_PATTERN.test(text)) return null;
+  const value = Number(text.replace(/,/g, ''));
+  return Number.isFinite(value) && value > 0 ? value : null;
+}
+
+function isBelowMinFixedBudget(fixedBudget) {
+  return fixedBudget !== null && fixedBudget < MIN_FIXED_BUDGET;
+}
+
+export function isExcludedRawJob(job) {
+  return isExcludedCountry(job.client?.location?.country)
+    || isBelowMinFixedBudget(rawFixedBudgetValue(job.amount));
+}
+
+export function isExcludedCompactJob(job) {
+  return isExcludedCountry(job.client?.country)
+    || isBelowMinFixedBudget(compactFixedBudgetValue(job.budget));
 }
 
 function lookbackCutoffDate(now = new Date()) {
@@ -189,6 +215,7 @@ function summarize(records, source, fetchedCount = null, extras = {}) {
     lookbackHours: DEFAULT_LOOKBACK_HOURS,
     relevantCount: records.length,
     excludedClientCountries: ['India', 'Pakistan', 'Nigeria'],
+    excludedBelowFixedBudget: MIN_FIXED_BUDGET,
     piClassifier: {
       model: records.find((record) => record.piClassification)?.piClassification?.model ?? process.env.PI_LANE_MODEL ?? DEFAULT_PI_MODEL,
       classifiedCount: piClassifiedCount,

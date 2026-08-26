@@ -4,6 +4,8 @@ import test from 'node:test';
 import {
   JOB_CLASSIFICATIONS,
   compactJob,
+  isExcludedCompactJob,
+  isExcludedRawJob,
   mergeApplicantCount,
   normalizeJobClassification,
   sweepRetainedWindowJobs,
@@ -100,6 +102,24 @@ test('keeps a materialized applicant count when compacting', () => {
     matches: [],
   });
   assert.equal(job.totalApplicants, 4);
+});
+
+test('excludes raw jobs whose source fixed budget is below the minimum', () => {
+  const base = { client: { location: { country: 'Germany' } } };
+  assert.equal(isExcludedRawJob({ ...base, amount: { rawValue: 299.99, currency: 'USD', displayValue: '299.99' } }), true);
+  assert.equal(isExcludedRawJob({ ...base, amount: { rawValue: 300, currency: 'USD', displayValue: '300.0' } }), false);
+  assert.equal(isExcludedRawJob({ ...base, amount: { rawValue: 5000, currency: 'USD', displayValue: '5000.0' } }), false);
+  // Hourly postings report no usable fixed amount and must stay visible.
+  assert.equal(isExcludedRawJob({ ...base, amount: null, hourlyBudgetMin: { rawValue: 30, displayValue: '30.00' } }), false);
+  assert.equal(isExcludedRawJob({ ...base, amount: { rawValue: 0, currency: 'USD', displayValue: '0.0' } }), false);
+  assert.equal(isExcludedRawJob(base), false);
+});
+
+test('excludes cached jobs whose stored fixed budget is below the minimum', () => {
+  assert.equal(isExcludedCompactJob({ client: { country: 'Germany' }, budget: '75.0' }), true);
+  assert.equal(isExcludedCompactJob({ client: { country: 'Germany' }, budget: '1,200.0' }), false);
+  assert.equal(isExcludedCompactJob({ client: { country: 'Germany' }, budget: '30.00 - 60.00/hr' }), false);
+  assert.equal(isExcludedCompactJob({ client: { country: 'Germany' }, budget: null }), false);
 });
 
 test('merges applicant counts monotonically across flapping replicas', () => {

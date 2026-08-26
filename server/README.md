@@ -94,7 +94,9 @@ npm run upwork:jobs
 The full job command walks Upwork's native Web, Mobile & Software Dev feed and
 writes JSONL plus a summary under `data/`. The server separately maintains the
 72-hour, lane-filtered opportunity cache in `data/upwork-jobs.json` and refreshes
-it automatically every hour.
+it automatically every hour. Postings whose source-stated fixed budget is below
+$300 are excluded; hourly budgets and postings without a stated budget stay
+eligible.
 
 The Upwork view classifies opportunities into the lanes documented in
 [`docs/upwork/positioning-plan.md`](docs/upwork/positioning-plan.md). Market
