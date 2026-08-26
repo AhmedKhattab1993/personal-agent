@@ -221,7 +221,7 @@ test('hard-filters jobs to fewer than 10 applicants', () => {
 
   assert.deepEqual(
     filterJobsByApplicantCount(jobs).map((job) => job.id),
-    ['zero', 'nine']
+    ['zero', 'nine', 'missing']
   );
 });
 

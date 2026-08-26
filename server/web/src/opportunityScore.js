@@ -308,11 +308,13 @@ export function sortJobsForDisplay(jobs, sortMode, referenceTime = null) {
 }
 
 export function filterJobsByApplicantCount(jobs) {
-  return jobs.filter((job) => (
-    Number.isInteger(job?.totalApplicants)
-    && job.totalApplicants >= 0
-    && job.totalApplicants < MAX_VISIBLE_APPLICANTS
-  ));
+  return jobs.filter((job) => {
+    const applicants = job?.totalApplicants;
+    // Unknown counts (Upwork has not materialized them yet) stay in the radar:
+    // they are typically fresh postings with low competition.
+    if (applicants === null || applicants === undefined) return true;
+    return Number.isInteger(applicants) && applicants >= 0 && applicants < MAX_VISIBLE_APPLICANTS;
+  });
 }
 
 export function filterJobsByPublishedHours(jobs, hours, referenceTime) {

@@ -24,6 +24,63 @@ test('builds the Upwork proposal apply URL from a job ciphertext', () => {
   assert.equal(upworkApplyUrl(null), null);
 });
 
+test('treats a reported applicant count of zero as not yet reported', () => {
+  const job = compactJob({
+    id: 'job-zero',
+    ciphertext: '~0987654321',
+    title: 'Fresh posting',
+    description: 'Description',
+    publishedDateTime: '2026-08-02T10:00:00Z',
+    totalApplicants: 0,
+    client: { location: {} },
+    skills: [],
+  }, {
+    lane: { id: 'automation', label: 'Automation' },
+    laneId: 'automation',
+    laneLabel: 'Automation',
+    matches: [],
+  });
+  assert.equal(job.totalApplicants, null);
+});
+
+test('keeps the last materialized applicant count when a refresh reports zero again', () => {
+  const job = compactJob({
+    id: 'job-zero',
+    ciphertext: '~0987654321',
+    title: 'Fresh posting',
+    description: 'Description',
+    publishedDateTime: '2026-08-02T10:00:00Z',
+    totalApplicants: 0,
+    client: { location: {} },
+    skills: [],
+  }, {
+    lane: { id: 'automation', label: 'Automation' },
+    laneId: 'automation',
+    laneLabel: 'Automation',
+    matches: [],
+  }, { totalApplicants: 4 });
+  assert.equal(job.totalApplicants, 4);
+});
+
+test('keeps a materialized applicant count when compacting', () => {
+  const job = compactJob({
+    id: 'job-counted',
+    ciphertext: '~0987654322',
+    title: 'Counted posting',
+    description: 'Description',
+    publishedDateTime: '2026-08-02T10:00:00Z',
+    totalApplicants: 4,
+    client: { location: {} },
+    skills: [],
+  }, {
+    lane: { id: 'automation', label: 'Automation' },
+    laneId: 'automation',
+    laneLabel: 'Automation',
+    matches: [],
+  });
+  assert.equal(job.totalApplicants, 4);
+});
+
 test('preserves a job classification when compacting refreshed Upwork data', () => {
   const refreshed = compactJob({
     id: 'job-1',

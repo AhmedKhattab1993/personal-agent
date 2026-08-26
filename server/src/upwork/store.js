@@ -139,7 +139,14 @@ export function compactJob(job, laneInfo, existing = null, now = new Date().toIS
     durationLabel: job.durationLabel ?? null,
     engagement: job.engagement ?? null,
     experienceLevel: job.experienceLevel ?? null,
-    totalApplicants: job.totalApplicants ?? null,
+    // Upwork's search API intermittently reports 0 for postings whose
+    // applicant count has not materialized yet (observed: 0 at one fetch,
+    // 14 at the next, then 0 again — inconsistent API replicas). Treat 0 as
+    // "not yet reported" and keep the last materialized count once known,
+    // since applicant counts only grow.
+    totalApplicants: (Number.isInteger(job.totalApplicants) && job.totalApplicants > 0
+      ? job.totalApplicants
+      : null) ?? existing?.totalApplicants ?? null,
     budget,
     skills: (job.skills ?? []).map((skill) => skill.prettyName ?? skill.name).filter(Boolean).slice(0, 10),
     client: {
