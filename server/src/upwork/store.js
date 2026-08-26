@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { ensureProposalTemplate, generateCoverLetterWithPi } from './coverLetter.js';
 import { applyPiLaneDecision, classifyLaneCandidatesWithPi } from './laneClassifier.js';
 import { classifyLane, LANES } from './positioningLanes.js';
-import { fetchRecentPositioningJobs, POSITIONING_SEARCH_SOURCE } from './jobs.js';
+import { fetchRecentPositioningJobs, findJobByTitle, POSITIONING_SEARCH_SOURCE } from './jobs.js';
 import { DEFAULT_PI_MODEL } from '../piCli.js';
 
 const APP_ROOT = fileURLToPath(new URL('../..', import.meta.url));
@@ -99,6 +99,12 @@ function shouldRetainJob(job, cutoff) {
   return normalizeJobClassification(job.classification) !== null || isWithinLookback(job, cutoff);
 }
 
+export function mergeApplicantCount(freshRaw, storedRaw) {
+  const fresh = Number.isInteger(freshRaw) && freshRaw > 0 ? freshRaw : 0;
+  const stored = Number.isInteger(storedRaw) && storedRaw > 0 ? storedRaw : 0;
+  return fresh > 0 || stored > 0 ? Math.max(fresh, stored) : null;
+}
+
 export function compactJob(job, laneInfo, existing = null, now = new Date().toISOString()) {
   const client = job.client ?? {};
   const location = client.location ?? {};
@@ -132,17 +138,8 @@ export function compactJob(job, laneInfo, existing = null, now = new Date().toIS
     // "not yet reported" and keep the last materialized count once known,
     // since applicant counts only grow.
     // Applicant counts only grow, and Upwork replicas intermittently serve a
-    // stale zero while a posting's count materializes. Keep the highest count
-    // seen so far and treat "never reported" as unknown (null).
-    totalApplicants: (() => {
-      const fresh = Number.isInteger(job.totalApplicants) && job.totalApplicants > 0
-        ? job.totalApplicants
-        : 0;
-      const stored = Number.isInteger(existing?.totalApplicants) && existing.totalApplicants > 0
-        ? existing.totalApplicants
-        : 0;
-      return fresh > 0 || stored > 0 ? Math.max(fresh, stored) : null;
-    })(),
+    // stale zero while a posting's count materializes.
+    totalApplicants: mergeApplicantCount(job.totalApplicants, existing?.totalApplicants),
     budget,
     skills: (job.skills ?? []).map((skill) => skill.prettyName ?? skill.name).filter(Boolean).slice(0, 10),
     client: {
@@ -269,6 +266,26 @@ export async function loadUpworkJobs() {
   return { jobs: [], summary: summarize([], 'empty') };
 }
 
+/**
+ * Re-poll open in-window jobs the keyword searches missed (postings age out
+ * of expression result pages while still live). Jobs gone from the index
+ * (hired/closed) are kept unchanged and age out of the window naturally.
+ */
+export async function sweepRetainedWindowJobs(candidates, lookup, nowIso) {
+  const swept = [];
+  for (const job of candidates) {
+    const node = await lookup(job);
+    if (!node || String(node.id) !== String(job.id)) continue;
+    swept.push({
+      ...job,
+      totalApplicants: mergeApplicantCount(node.totalApplicants, job.totalApplicants),
+      status: 'active',
+      lastSeenAt: nowIso,
+    });
+  }
+  return swept;
+}
+
 export async function refreshUpworkJobs() {
   const existingState = await loadUpworkJobs();
   const now = new Date();
@@ -289,9 +306,14 @@ export async function refreshUpworkJobs() {
     .map((item) => compactJob(item.job, item.laneInfo, existingById.get(item.job.id), nowIso));
 
   const refreshedIds = new Set(refreshed.map((job) => job.id));
-  const retained = retainedExisting
-    .filter((job) => !refreshedIds.has(job.id))
-    .map((job) => ({ ...job, status: 'active' }));
+  const retainedMissed = retainedExisting.filter((job) => !refreshedIds.has(job.id));
+  const swept = await sweepRetainedWindowJobs(
+    retainedMissed.filter((job) => !job.classification && isWithinLookback(job, cutoff)),
+    async (job) => (await findJobByTitle(job.title)).find((node) => String(node.id) === String(job.id)) ?? null,
+    nowIso,
+  );
+  const sweptById = new Map(swept.map((job) => [job.id, job]));
+  const retained = retainedMissed.map((job) => sweptById.get(job.id) ?? { ...job, status: 'active' });
 
   const jobs = sortRecords([...refreshed, ...retained]);
   const state = {

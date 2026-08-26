@@ -4,7 +4,9 @@ import test from 'node:test';
 import {
   JOB_CLASSIFICATIONS,
   compactJob,
+  mergeApplicantCount,
   normalizeJobClassification,
+  sweepRetainedWindowJobs,
   upworkApplyUrl,
 } from './store.js';
 
@@ -98,6 +100,32 @@ test('keeps a materialized applicant count when compacting', () => {
     matches: [],
   });
   assert.equal(job.totalApplicants, 4);
+});
+
+test('merges applicant counts monotonically across flapping replicas', () => {
+  assert.equal(mergeApplicantCount(14, 4), 14);
+  assert.equal(mergeApplicantCount(0, 4), 4);
+  assert.equal(mergeApplicantCount(0, null), null);
+  assert.equal(mergeApplicantCount(7, null), 7);
+});
+
+test('sweep re-polls missed window jobs and keeps delisted ones unchanged', async () => {
+  const candidates = [
+    { id: '1', title: 'Live job', totalApplicants: 2, lastSeenAt: '2026-08-25T00:00:00Z' },
+    { id: '2', title: 'Delisted job', totalApplicants: 5, lastSeenAt: '2026-08-25T00:00:00Z' },
+    { id: '3', title: 'Never reported', totalApplicants: null, lastSeenAt: '2026-08-25T00:00:00Z' },
+  ];
+  const lookup = async (job) => ({
+    1: { id: '1', totalApplicants: 9 },
+    2: null,
+    3: { id: '3', totalApplicants: 0 },
+  })[job.id];
+  const swept = await sweepRetainedWindowJobs(candidates, lookup, '2026-08-26T00:00:00Z');
+  const byId = new Map(swept.map((job) => [job.id, job]));
+  assert.equal(byId.get('1').totalApplicants, 9);
+  assert.equal(byId.get('1').lastSeenAt, '2026-08-26T00:00:00Z');
+  assert.equal(byId.has('2'), false, 'delisted job is not swept');
+  assert.equal(byId.get('3').totalApplicants, null, 'zero stays unknown');
 });
 
 test('preserves a job classification when compacting refreshed Upwork data', () => {

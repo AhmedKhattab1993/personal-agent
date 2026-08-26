@@ -299,6 +299,18 @@ export async function fetchLatestSoftwareJobs(limit = 1000, onPage = null) {
   };
 }
 
+export async function findJobByTitle(title) {
+  const data = await graphql(
+    `query FindJobByTitle($filter: MarketplaceJobPostingsSearchFilter) {
+      marketplaceJobPostingsSearch(marketPlaceJobFilter: $filter, searchType: USER_JOBS_SEARCH) {
+        edges { node { id totalApplicants } }
+      }
+    }`,
+    { filter: { titleExpression_eq: title, pagination_eq: { after: '0', first: 10 } } },
+  );
+  return data?.marketplaceJobPostingsSearch?.edges?.map((edge) => edge.node) ?? [];
+}
+
 export async function fetchRecentPositioningJobs({ sinceDate, onPage = null } = {}) {
   const since = sinceDate instanceof Date ? sinceDate : new Date(sinceDate);
   if (Number.isNaN(since.getTime())) {
