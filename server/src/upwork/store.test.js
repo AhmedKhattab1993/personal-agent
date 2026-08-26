@@ -62,6 +62,25 @@ test('keeps the last materialized applicant count when a refresh reports zero ag
   assert.equal(job.totalApplicants, 4);
 });
 
+test('updates the applicant count when a re-poll reports a higher number', () => {
+  const job = compactJob({
+    id: 'job-counted',
+    ciphertext: '~0987654322',
+    title: 'Counted posting',
+    description: 'Description',
+    publishedDateTime: '2026-08-02T10:00:00Z',
+    totalApplicants: 14,
+    client: { location: {} },
+    skills: [],
+  }, {
+    lane: { id: 'automation', label: 'Automation' },
+    laneId: 'automation',
+    laneLabel: 'Automation',
+    matches: [],
+  }, { totalApplicants: 4 });
+  assert.equal(job.totalApplicants, 14);
+});
+
 test('keeps a materialized applicant count when compacting', () => {
   const job = compactJob({
     id: 'job-counted',

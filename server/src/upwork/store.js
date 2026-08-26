@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { ensureProposalTemplate, generateCoverLetterWithPi } from './coverLetter.js';
-import { classifyLaneCandidatesWithPi } from './laneClassifier.js';
+import { applyPiLaneDecision, classifyLaneCandidatesWithPi } from './laneClassifier.js';
 import { classifyLane, LANES } from './positioningLanes.js';
 import { fetchRecentPositioningJobs, POSITIONING_SEARCH_SOURCE } from './jobs.js';
 import { DEFAULT_PI_MODEL } from '../piCli.js';
@@ -99,19 +99,6 @@ function shouldRetainJob(job, cutoff) {
   return normalizeJobClassification(job.classification) !== null || isWithinLookback(job, cutoff);
 }
 
-function newestPublishedDate(records) {
-  let newest = null;
-  for (const record of records) {
-    const published = validDate(record.publishedDateTime);
-    if (published && (!newest || published > newest)) newest = published;
-  }
-  return newest;
-}
-
-function shouldBackfillWindow(existingState) {
-  return existingState.summary?.source !== POSITIONING_SEARCH_SOURCE;
-}
-
 export function compactJob(job, laneInfo, existing = null, now = new Date().toISOString()) {
   const client = job.client ?? {};
   const location = client.location ?? {};
@@ -144,9 +131,18 @@ export function compactJob(job, laneInfo, existing = null, now = new Date().toIS
     // 14 at the next, then 0 again — inconsistent API replicas). Treat 0 as
     // "not yet reported" and keep the last materialized count once known,
     // since applicant counts only grow.
-    totalApplicants: (Number.isInteger(job.totalApplicants) && job.totalApplicants > 0
-      ? job.totalApplicants
-      : null) ?? existing?.totalApplicants ?? null,
+    // Applicant counts only grow, and Upwork replicas intermittently serve a
+    // stale zero while a posting's count materializes. Keep the highest count
+    // seen so far and treat "never reported" as unknown (null).
+    totalApplicants: (() => {
+      const fresh = Number.isInteger(job.totalApplicants) && job.totalApplicants > 0
+        ? job.totalApplicants
+        : 0;
+      const stored = Number.isInteger(existing?.totalApplicants) && existing.totalApplicants > 0
+        ? existing.totalApplicants
+        : 0;
+      return fresh > 0 || stored > 0 ? Math.max(fresh, stored) : null;
+    })(),
     budget,
     skills: (job.skills ?? []).map((skill) => skill.prettyName ?? skill.name).filter(Boolean).slice(0, 10),
     client: {
@@ -215,14 +211,27 @@ function sortRecords(records) {
   });
 }
 
-async function classifyRelevantJobs(rawJobs) {
+async function classifyRelevantJobs(rawJobs, existingById = new Map()) {
   const keywordCandidates = rawJobs
     .filter((job) => !isExcludedRawJob(job))
     .map((job) => ({ job, laneInfo: classifyLane(job) }))
     .filter((item) => item.laneInfo.relevant);
 
-  const adjudicated = await classifyLaneCandidatesWithPi(keywordCandidates);
-  return adjudicated.filter((item) => item.laneInfo.relevant);
+  // Reuse stored PI decisions for already-classified jobs so window-wide
+  // re-polls only cost classifier runs for genuinely new postings.
+  const reused = [];
+  const fresh = [];
+  for (const item of keywordCandidates) {
+    const stored = existingById.get(String(item.job.id))?.piClassification;
+    if (stored) {
+      reused.push({ job: item.job, laneInfo: applyPiLaneDecision(item.laneInfo, stored) });
+    } else {
+      fresh.push(item);
+    }
+  }
+
+  const adjudicated = await classifyLaneCandidatesWithPi(fresh);
+  return [...reused, ...adjudicated].filter((item) => item.laneInfo.relevant);
 }
 
 function normalizeUpworkState(state) {
@@ -268,13 +277,14 @@ export async function refreshUpworkJobs() {
     .filter((job) => !isExcludedCompactJob(job))
     .filter((job) => shouldRetainJob(job, cutoff));
   const existingById = new Map(retainedExisting.map((job) => [job.id, job]));
-  const newestExisting = newestPublishedDate(retainedExisting);
-  const fullWindowBackfill = shouldBackfillWindow(existingState) || !newestExisting || newestExisting < cutoff;
-  const sinceDate = fullWindowBackfill ? cutoff : newestExisting;
+  const cutoffIso = cutoff.toISOString();
   const nowIso = now.toISOString();
 
-  const latest = await fetchRecentPositioningJobs({ sinceDate });
-  const classified = await classifyRelevantJobs(latest.jobs);
+  // Re-poll the whole window every refresh so applicant counts and budgets
+  // stay current; stored PI classifications are reused, so only genuinely new
+  // postings cost classifier runs.
+  const latest = await fetchRecentPositioningJobs({ sinceDate: cutoff });
+  const classified = await classifyRelevantJobs(latest.jobs, existingById);
   const refreshed = classified
     .map((item) => compactJob(item.job, item.laneInfo, existingById.get(item.job.id), nowIso));
 
@@ -287,9 +297,7 @@ export async function refreshUpworkJobs() {
   const state = {
     jobs,
     summary: summarize(jobs, POSITIONING_SEARCH_SOURCE, latest.jobs.length, {
-      deltaSinceDateTime: sinceDate.toISOString(),
-      fullWindowBackfill,
-      windowStartDateTime: cutoff.toISOString(),
+      windowStartDateTime: cutoffIso,
       windowEndDateTime: nowIso,
     }),
     upworkSummary: latest.summary,

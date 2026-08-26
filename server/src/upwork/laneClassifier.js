@@ -110,7 +110,7 @@ function buildPiClassificationItems(items) {
   }));
 }
 
-function applyPiLaneDecision(laneInfo, decision) {
+export function applyPiLaneDecision(laneInfo, decision) {
   if (decision.laneId === 'reject') {
     return {
       ...laneInfo,
