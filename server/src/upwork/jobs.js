@@ -27,94 +27,98 @@ const POSITIONING_SEARCH_EXPRESSIONS = [
 ];
 const MAX_POSITIONING_SEARCH_PAGES = 100;
 
-const JOB_QUERY = /* GraphQL */ `
-  query LatestSoftwareJobs(
-    $filter: MarketplaceJobPostingsSearchFilter,
-    $sort: [MarketplaceJobPostingSearchSortAttribute]
-  ) {
-    marketplaceJobPostingsSearch(
-      marketPlaceJobFilter: $filter,
-      searchType: USER_JOBS_SEARCH,
-      sortAttributes: $sort
-    ) {
-      totalCount
-      pageInfo {
-        endCursor
-        hasNextPage
-      }
-      edges {
-        node {
-          id
-          ciphertext
-          title
-          description
-          publishedDateTime
-          createdDateTime
-          renewedDateTime
-          category
-          subcategory
-          duration
-          durationLabel
-          engagement
-          experienceLevel
-          totalApplicants
-          skills {
-            name
-            prettyName
-            highlighted
-          }
-          client {
-            totalHires
-            totalPostedJobs
-            totalSpent {
-              rawValue
-              currency
-              displayValue
-            }
-            verificationStatus
-            location {
-              country
-              city
-              state
-              timezone
-            }
-            totalReviews
-            totalFeedback
-          }
+function buildJobQuery({ includeAmount = true } = {}) {
+  const amountSelection = `
           amount {
             rawValue
             currency
             displayValue
-          }
-          hourlyBudgetMin {
-            rawValue
-            currency
-            displayValue
-          }
-          hourlyBudgetMax {
-            rawValue
-            currency
-            displayValue
-          }
-          occupations {
-            category {
-              id
-              prefLabel
+          }`;
+  return /* GraphQL */ `
+    query LatestSoftwareJobs(
+      $filter: MarketplaceJobPostingsSearchFilter,
+      $sort: [MarketplaceJobPostingSearchSortAttribute]
+    ) {
+      marketplaceJobPostingsSearch(
+        marketPlaceJobFilter: $filter,
+        searchType: USER_JOBS_SEARCH,
+        sortAttributes: $sort
+      ) {
+        totalCount
+        pageInfo {
+          endCursor
+          hasNextPage
+        }
+        edges {
+          node {
+            id
+            ciphertext
+            title
+            description
+            publishedDateTime
+            createdDateTime
+            renewedDateTime
+            category
+            subcategory
+            duration
+            durationLabel
+            engagement
+            experienceLevel
+            totalApplicants
+            skills {
+              name
+              prettyName
+              highlighted
             }
-            subCategories {
-              id
-              prefLabel
+            client {
+              totalHires
+              totalPostedJobs
+              totalSpent {
+                rawValue
+                currency
+                displayValue
+              }
+              verificationStatus
+              location {
+                country
+                city
+                state
+                timezone
+              }
+              totalReviews
+              totalFeedback
             }
-            occupationService {
-              id
-              prefLabel
+            ${includeAmount ? amountSelection : ''}
+            hourlyBudgetMin {
+              rawValue
+              currency
+              displayValue
+            }
+            hourlyBudgetMax {
+              rawValue
+              currency
+              displayValue
+            }
+            occupations {
+              category {
+                id
+                prefLabel
+              }
+              subCategories {
+                id
+                prefLabel
+              }
+              occupationService {
+                id
+                prefLabel
+              }
             }
           }
         }
       }
     }
-  }
-`;
+  `;
+}
 
 export function parseLimit(value, fallback = 1000) {
   const limit = Number(value ?? fallback);
@@ -169,6 +173,64 @@ function isAfterDate(job, sinceDate) {
   return new Date(job.publishedDateTime ?? 0) > sinceDate;
 }
 
+function buildPageVariables(after, first, searchExpression = null) {
+  const pagination_eq = { after, first };
+  const filter = searchExpression
+    ? { searchExpression_eq: searchExpression, pagination_eq }
+    : { categoryIds_any: [SOFTWARE_DEV_CATEGORY_ID], pagination_eq };
+  return { filter, sort: [{ field: 'RECENCY' }] };
+}
+
+async function fetchSearchPage(variables, { includeAmount = true } = {}) {
+  const data = await graphql(buildJobQuery({ includeAmount }), variables);
+  const result = data?.marketplaceJobPostingsSearch;
+  if (!result) {
+    throw new Error('missing marketplaceJobPostingsSearch result');
+  }
+  return result;
+}
+
+/**
+ * First edges index whose non-null field resolved null, or null when the
+ * response carries no such null-propagation error. Upwork intermittently
+ * resolves `amount` (schema type `Money!`) to null for one posting, which
+ * nulls the whole marketplaceJobPostingsSearch result per the GraphQL spec.
+ */
+function nullPropagationEdgeIndex(error) {
+  const indexes = (error?.graphqlErrors ?? [])
+    .map((graphqlError) => graphqlError?.path)
+    .filter((path) => Array.isArray(path)
+      && path[0] === 'marketplaceJobPostingsSearch'
+      && path[1] === 'edges'
+      && Number.isInteger(path[2])
+      && path[2] >= 0)
+    .map((path) => path[2]);
+  return indexes.length ? Math.min(...indexes) : null;
+}
+
+/**
+ * Fetch one search page, working around Upwork null-propagation failures.
+ *
+ * When one posting poisons the page, refetch only the valid prefix, then
+ * continue pagination from its cursor. When the poisoned posting is the
+ * first edge, fetch that single posting without the fragile `amount` field
+ * so pagination can still advance past it (its budget falls back to the
+ * hourly range or "Not stated").
+ */
+async function fetchSearchPageResilient(after, first, searchExpression = null) {
+  try {
+    return await fetchSearchPage(buildPageVariables(after, first, searchExpression));
+  } catch (error) {
+    const poisonedIndex = nullPropagationEdgeIndex(error);
+    if (poisonedIndex === null) throw error;
+    console.warn(`  ! null propagation at edges[${poisonedIndex}]; refetching around it`);
+    if (poisonedIndex > 0) {
+      return await fetchSearchPageResilient(after, poisonedIndex, searchExpression);
+    }
+    return await fetchSearchPage(buildPageVariables(after, 1, searchExpression), { includeAmount: false });
+  }
+}
+
 async function fetchRecentSearchExpressionJobs(searchExpression, sinceDate) {
   const jobs = [];
   let after = '0';
@@ -181,18 +243,7 @@ async function fetchRecentSearchExpressionJobs(searchExpression, sinceDate) {
       throw new Error(`search pagination exceeded ${MAX_POSITIONING_SEARCH_PAGES} pages for ${searchExpression}`);
     }
 
-    const variables = {
-      filter: {
-        searchExpression_eq: searchExpression,
-        pagination_eq: { after, first: PAGE_SIZE },
-      },
-      sort: [{ field: 'RECENCY' }],
-    };
-    const data = await graphql(JOB_QUERY, variables);
-    const result = data?.marketplaceJobPostingsSearch;
-    if (!result) {
-      throw new Error(`missing marketplaceJobPostingsSearch result for ${searchExpression}`);
-    }
+    const result = await fetchSearchPageResilient(after, PAGE_SIZE, searchExpression);
 
     totalCount ??= result.totalCount;
     const batch = result.edges?.map((edge) => edge.node) ?? [];
@@ -225,20 +276,7 @@ export async function fetchLatestSoftwareJobs(limit = 1000, onPage = null) {
   while (jobs.length < limit) {
     const remaining = limit - jobs.length;
     const first = Math.min(PAGE_SIZE, remaining);
-    const filter = {
-      categoryIds_any: [SOFTWARE_DEV_CATEGORY_ID],
-      pagination_eq: { after, first },
-    };
-    const variables = {
-      filter,
-      sort: [{ field: 'RECENCY' }],
-    };
-    const data = await graphql(JOB_QUERY, variables);
-    const result = data?.marketplaceJobPostingsSearch;
-    if (!result) {
-      throw new Error('missing marketplaceJobPostingsSearch result');
-    }
-
+    const result = await fetchSearchPageResilient(after, first);
     totalCount ??= result.totalCount;
     const batch = result.edges?.map((edge) => edge.node) ?? [];
     jobs.push(...batch);

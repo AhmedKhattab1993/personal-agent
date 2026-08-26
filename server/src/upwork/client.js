@@ -44,7 +44,9 @@ export async function graphql(query, variables = {}) {
   }
   if (json.errors?.length) {
     const msgs = json.errors.map((e) => e.message).join('; ');
-    throw new Error(`GraphQL errors: ${msgs}`);
+    const error = new Error(`GraphQL errors: ${msgs}`);
+    error.graphqlErrors = json.errors;
+    throw error;
   }
   return json.data;
 }

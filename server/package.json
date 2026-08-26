@@ -9,7 +9,7 @@
   },
   "scripts": {
     "server": "node src/server.js",
-    "test": "node --test src/*.test.js src/planning/*.test.js src/upwork/*.test.js web/src/*.test.js",
+    "test": "node --test --experimental-test-module-mocks src/*.test.js src/planning/*.test.js src/upwork/*.test.js web/src/*.test.js",
     "upwork:auth": "node src/upwork/auth.js",
     "upwork:jobs": "node src/upwork/fetchJobs.js 1000",
     "upwork:jobs:sample": "node src/upwork/fetchJobs.js 10",
