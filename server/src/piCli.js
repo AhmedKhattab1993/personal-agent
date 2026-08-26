@@ -1,10 +1,10 @@
 import { spawn } from 'node:child_process';
 
-export const DEFAULT_PI_MODEL = 'zai/glm-5.2';
+export const DEFAULT_PI_MODEL = 'zai/glm-5.3';
 const DEFAULT_PI_NODE_PATH = '/opt/homebrew/bin/node';
 export const DEFAULT_PI_CLI_PATH = '/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/dist/cli.js';
 export const DEFAULT_PI_TIMEOUT_MS = 180_000;
-export const DEFAULT_PI_THINKING = 'off';
+export const DEFAULT_PI_THINKING = 'low';
 
 export function parsePositiveInt(value, fallback) {
   const parsed = Number.parseInt(value, 10);

@@ -8,6 +8,7 @@ import { ensureProposalTemplate, generateCoverLetterWithPi } from './coverLetter
 import { classifyLaneCandidatesWithPi } from './laneClassifier.js';
 import { classifyLane, LANES } from './positioningLanes.js';
 import { fetchRecentPositioningJobs, POSITIONING_SEARCH_SOURCE } from './jobs.js';
+import { DEFAULT_PI_MODEL } from '../piCli.js';
 
 const APP_ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const DATA_ROOT = join(APP_ROOT, 'data');
@@ -189,7 +190,7 @@ function summarize(records, source, fetchedCount = null, extras = {}) {
     relevantCount: records.length,
     excludedClientCountries: ['India', 'Pakistan', 'Nigeria'],
     piClassifier: {
-      model: records.find((record) => record.piClassification)?.piClassification?.model ?? process.env.PI_LANE_MODEL ?? 'zai/glm-5.2',
+      model: records.find((record) => record.piClassification)?.piClassification?.model ?? process.env.PI_LANE_MODEL ?? DEFAULT_PI_MODEL,
       classifiedCount: piClassifiedCount,
     },
     laneCounts,

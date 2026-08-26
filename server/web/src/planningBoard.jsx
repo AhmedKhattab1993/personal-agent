@@ -230,7 +230,7 @@ export default function PlanningBoard({ navigation }) {
   const [assistantError, setAssistantError] = useState(null);
   const [assistantEvidence, setAssistantEvidence] = useState(null);
   const [appliedFields, setAppliedFields] = useState([]);
-  const [assistantModel, setAssistantModel] = useState('zai/glm-5.2');
+  const [assistantModel, setAssistantModel] = useState('zai/glm-5.3');
 
   async function loadBoard() {
     setError(null);
@@ -307,7 +307,7 @@ export default function PlanningBoard({ navigation }) {
       setGoalForm((current) => ({ ...current, ...updates }));
       setAppliedFields(Object.keys(updates));
       setAssistantEvidence(result.investigation);
-      setAssistantModel(result.model ?? 'zai/glm-5.2');
+      setAssistantModel(result.model ?? 'zai/glm-5.3');
       setAssistantMessages((current) => [...current, { role: 'assistant', content: result.reply }]);
     } catch (chatError) {
       setAssistantError(chatError.message);
