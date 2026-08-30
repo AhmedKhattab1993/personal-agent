@@ -34,8 +34,9 @@ Names describe scope:
 | Whole system | `personal-agent` | This repository and all personal-agent capabilities |
 | Runnable application | `server` | The authenticated HTTP API and shared web interface |
 | Product capability | `planning` | Projects, goals, and agent-ready work planning |
+| Product capability | `focus` | A focused to-do list of tasks and grabbed goals, synced with planning notes |
 | External integration | `upwork` | Upwork OAuth, jobs, proposals, and opportunity tooling |
-| Browser client | `web` | The frontend shared by the planning and Upwork features |
+| Browser client | `web` | The frontend shared by the planning, focus, and Upwork features |
 
 Generic runtime code belongs directly under `server/`. Feature-specific code,
 API routes, commands, and documentation use the `planning` or `upwork`

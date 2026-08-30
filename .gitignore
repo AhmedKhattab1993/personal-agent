@@ -16,6 +16,8 @@ server/web/dist/
 server/data/*
 # The planning board is durable user-authored state and is versioned.
 !server/data/planning-board.json
+# The focus list is durable user-authored state and is versioned.
+!server/data/focus-list.json
 
 # misc
 .DS_Store

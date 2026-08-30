@@ -19,6 +19,13 @@ import {
 } from './upwork/store.js';
 import { refineGoalWithPi } from './planning/goalAssistant.js';
 import {
+  createFocusItem,
+  deleteFocusItem,
+  loadFocusSnapshot,
+  reorderFocusItems,
+  updateFocusItem,
+} from './planning/focusStore.js';
+import {
   createPlanningGoal,
   createPlanningProject,
   deletePlanningProject,
@@ -67,6 +74,11 @@ const SERVER_ACTIONS = [
   { id: 'planning.goal.create', method: 'POST', path: '/api/planning/goals', description: 'Create a planning goal.' },
   { id: 'planning.goal.update', method: 'PATCH', path: '/api/planning/goals/{goalId}', description: 'Update or move a planning goal.' },
   { id: 'planning.goal.delete', method: 'DELETE', path: '/api/planning/goals/{goalId}', description: 'Delete a planning goal.' },
+  { id: 'planning.focus.read', method: 'GET', path: '/api/planning/focus', description: 'List focus list items with the goals available to grab.' },
+  { id: 'planning.focus.item.create', method: 'POST', path: '/api/planning/focus/items', description: 'Add a custom item or an existing goal to the focus list.' },
+  { id: 'planning.focus.item.update', method: 'PATCH', path: '/api/planning/focus/items/{itemId}', description: 'Update a focus list item.' },
+  { id: 'planning.focus.item.delete', method: 'DELETE', path: '/api/planning/focus/items/{itemId}', description: 'Remove a focus list item.' },
+  { id: 'planning.focus.reorder', method: 'POST', path: '/api/planning/focus/reorder', description: 'Reorder the focus list with every item id in order.' },
   { id: 'upwork.jobs.list', method: 'GET', path: '/api/upwork/jobs', description: 'List cached Upwork jobs.' },
   { id: 'upwork.jobs.refresh', method: 'POST', path: '/api/upwork/jobs/refresh', description: 'Refresh and return Upwork jobs.' },
   { id: 'upwork.jobs.classify', method: 'PATCH', path: '/api/upwork/jobs/{jobId}/classification', description: 'Classify a cached Upwork job.' },
@@ -172,6 +184,22 @@ async function handleApi(req, res) {
   if (req.method === 'DELETE' && goalMatch) {
     const result = await deletePlanningGoal(decodeURIComponent(goalMatch[1]));
     return sendJson(res, 200, result.board);
+  }
+  if (req.method === 'GET' && url.pathname === '/api/planning/focus') {
+    return sendJson(res, 200, await loadFocusSnapshot());
+  }
+  if (req.method === 'POST' && url.pathname === '/api/planning/focus/items') {
+    return sendJson(res, 201, { items: await createFocusItem(await readRequestJson(req)) });
+  }
+  if (req.method === 'POST' && url.pathname === '/api/planning/focus/reorder') {
+    return sendJson(res, 200, { items: await reorderFocusItems(await readRequestJson(req)) });
+  }
+  const focusItemMatch = url.pathname.match(/^\/api\/planning\/focus\/items\/([^/]+)$/);
+  if (req.method === 'PATCH' && focusItemMatch) {
+    return sendJson(res, 200, { items: await updateFocusItem(decodeURIComponent(focusItemMatch[1]), await readRequestJson(req)) });
+  }
+  if (req.method === 'DELETE' && focusItemMatch) {
+    return sendJson(res, 200, { items: await deleteFocusItem(decodeURIComponent(focusItemMatch[1])) });
   }
   if (req.method === 'GET' && url.pathname === '/api/upwork/jobs') {
     return sendJson(res, 200, await loadUpworkJobs());

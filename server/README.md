@@ -5,6 +5,8 @@ Authenticated local server and shared web interface for the Personal Agent.
 ## Features
 
 - **Planning** manages directory-backed projects and outcome-oriented goals.
+- **Focus** keeps a short to-do list of quick tasks and grabbed goals, with
+  notes that stay synced to the goal.
 - **Upwork** handles OAuth, job discovery, opportunity classification, proposal
   drafting, and proposal-history exports.
 
@@ -66,6 +68,18 @@ The goal editor includes a read-only PI goal partner. PI runs in the selected
 project directory with only read, grep, find, and ls access. Optional overrides
 are `PI_GOAL_ASSISTANT_MODEL`, `PI_GOAL_ASSISTANT_THINKING`, and
 `PI_GOAL_ASSISTANT_TIMEOUT_MS`.
+
+## Focus
+
+The **Focus** view is a short vertical to-do list for right now. Items are
+quick custom tasks or existing goals grabbed from the planning board and
+reordered by dragging. Goal-linked items mirror the goal's title and notes,
+and note edits made in Focus are written back to the goal's **My notes**;
+custom items keep private notes on the list. Checking items off never changes
+the underlying goal's workflow state.
+
+Focus data lives in the Git-tracked `data/focus-list.json` so the list
+survives machine migrations alongside the goals it references.
 
 ## Upwork
 
@@ -131,6 +145,7 @@ After exporting `SERVER_SECRET`:
 ```sh
 curl --user "agent:$SERVER_SECRET" http://studio.tailcc4c77.ts.net:5173/api
 curl --user "agent:$SERVER_SECRET" http://studio.tailcc4c77.ts.net:5173/api/planning
+curl --user "agent:$SERVER_SECRET" http://studio.tailcc4c77.ts.net:5173/api/planning/focus
 curl --user "agent:$SERVER_SECRET" http://studio.tailcc4c77.ts.net:5173/api/upwork/jobs
 curl --user "agent:$SERVER_SECRET" -X POST http://studio.tailcc4c77.ts.net:5173/api/upwork/jobs/refresh
 ```
@@ -147,9 +162,10 @@ HTTP Basic credentials are not safe over untrusted plaintext networks.
 | `src/planning/` | Planning persistence and goal-assistant behavior |
 | `src/upwork/` | Upwork OAuth, GraphQL, jobs, classification, and proposal tooling |
 | `src/piCli.js` | Shared PI command integration |
-| `web/` | Shared React frontend for Planning and Upwork |
+| `web/` | Shared React frontend for Planning, Focus, and Upwork |
 | `docs/upwork/` | Upwork positioning and profile references |
 | `data/planning-board.json` | Versioned planning state |
+| `data/focus-list.json` | Versioned focus list state |
 | `data/upwork-jobs.json` | Ignored runtime cache for Upwork opportunities |
 
 ## Notes

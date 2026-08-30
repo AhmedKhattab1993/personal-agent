@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import {
   AlertCircle, ArrowRight, ArrowUpRight, Bot, BriefcaseBusiness,
   ChevronLeft, ChevronRight, CircleDollarSign, Clipboard, Clock3, DatabaseZap, FileText,
-  Columns3, Gauge, LayoutDashboard, MapPin, MessageSquareText, RefreshCcw, Search,
+  Columns3, Focus, Gauge, LayoutDashboard, MapPin, MessageSquareText, RefreshCcw, Search,
   ShieldCheck, SlidersHorizontal, Sparkles, TrendingUp, Users, X,
 } from 'lucide-react';
 
@@ -18,6 +18,7 @@ import {
 import { copyTextToClipboard } from './clipboard.js';
 import { findAdjacentJob, includeSelectedJobInNavigation } from './jobNavigation.js';
 import PlanningBoard from './planningBoard.jsx';
+import FocusView from './focusView.jsx';
 import './styles.css';
 
 const LANES = [
@@ -81,6 +82,7 @@ function scoreTone(estimate) {
 function AppNav({ active, onChange }) {
   return <nav className="app-tabs" aria-label="Personal Agent features">
     <button className={active === 'planning' ? 'active' : ''} onClick={() => onChange('planning')}><Columns3 /> Planning</button>
+    <button className={active === 'focus' ? 'active' : ''} onClick={() => onChange('focus')}><Focus /> Focus</button>
     <button className={active === 'upwork' ? 'active' : ''} onClick={() => onChange('upwork')}><BriefcaseBusiness /> Upwork</button>
   </nav>;
 }
@@ -399,16 +401,18 @@ function UpworkView({ navigation }) {
 }
 
 function App() {
-  const initialView = window.location.hash === '#upwork' ? 'upwork' : 'planning';
+  const initialView = window.location.hash === '#upwork'
+    ? 'upwork'
+    : window.location.hash === '#focus' ? 'focus' : 'planning';
   const [activeView, setActiveView] = useState(initialView);
   function navigate(view) {
     setActiveView(view);
-    window.history.replaceState(null, '', view === 'planning' ? '#planning' : '#upwork');
+    window.history.replaceState(null, '', `#${view}`);
   }
   const navigation = <AppNav active={activeView} onChange={navigate} />;
-  return activeView === 'planning'
-    ? <PlanningBoard navigation={navigation} />
-    : <UpworkView navigation={navigation} />;
+  if (activeView === 'planning') return <PlanningBoard navigation={navigation} />;
+  if (activeView === 'focus') return <FocusView navigation={navigation} />;
+  return <UpworkView navigation={navigation} />;
 }
 
 const rootElement = document.getElementById('root');
