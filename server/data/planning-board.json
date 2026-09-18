@@ -16,12 +16,12 @@
     {
       "id": "35920370-942e-47e7-8b5f-d1734444b1b9",
       "name": "galata-beans",
-      "category": "Other",
+      "category": "Products",
       "description": "",
       "directory": "~/projects/galata-beans",
       "color": "#5ad9ca",
       "createdAt": "2026-07-24T20:11:00.574Z",
-      "updatedAt": "2026-09-10T19:21:51.435Z"
+      "updatedAt": "2026-09-18T17:03:42.326Z"
     },
     {
       "id": "61c44e77-439c-474a-9a4f-439b462d7bf4",
@@ -37,12 +37,12 @@
     {
       "id": "6e739757-18cd-4026-bf04-3c01c578f797",
       "name": "Daniel-HumbleBot",
-      "category": "Trading",
+      "category": "Freelance",
       "description": "",
       "directory": "~/projects/Daniel-HumbleBot",
       "color": "#5ad9ca",
       "createdAt": "2026-07-15T17:02:18.754Z",
-      "updatedAt": "2026-09-10T18:39:03.567Z"
+      "updatedAt": "2026-09-18T17:03:42.317Z"
     },
     {
       "id": "7b73b9bc-90c2-474c-8799-b0a894a3aa03",
@@ -79,32 +79,22 @@
     {
       "id": "e502c4c7-cf31-4f3e-9de5-1544843a6f00",
       "name": "qayem",
-      "category": "Other",
+      "category": "Products",
       "description": "",
       "directory": "~/projects/qayem",
       "color": "#5ad9ca",
       "createdAt": "2026-07-24T20:11:02.198Z",
-      "updatedAt": "2026-09-10T19:21:36.184Z"
+      "updatedAt": "2026-09-18T17:03:42.338Z"
     },
     {
       "id": "4d6e0253-5ca3-45df-b41c-26e452ff8817",
       "name": "Gaming",
-      "category": "Other",
+      "category": "Products",
       "description": "",
       "directory": "~/projects",
       "color": "#5ad9ca",
       "createdAt": "2026-07-26T19:08:05.611Z",
-      "updatedAt": "2026-07-26T22:44:21.233Z"
-    },
-    {
-      "id": "3cecfb16-2593-494a-a442-1528292d4893",
-      "name": "sizzle-whisper",
-      "category": "Other",
-      "description": "",
-      "directory": "~/projects/sizzle-whisper",
-      "color": "#5ad9ca",
-      "createdAt": "2026-07-24T20:11:00.968Z",
-      "updatedAt": "2026-09-10T19:25:09.794Z"
+      "updatedAt": "2026-09-18T17:03:42.356Z"
     },
     {
       "id": "8380bafe-ea15-4dcf-b590-d43021a0d550",
@@ -2012,5 +2002,5 @@
       "updatedAt": "2026-09-10T23:59:30.001Z"
     }
   ],
-  "updatedAt": "2026-09-10T23:59:30.001Z"
+  "updatedAt": "2026-09-18T17:03:42.407Z"
 }
