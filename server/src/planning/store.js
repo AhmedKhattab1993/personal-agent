@@ -1,7 +1,7 @@
 import { randomBytes, randomUUID } from 'node:crypto';
-import { access, mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
-import { dirname, isAbsolute, join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const APP_ROOT = fileURLToPath(new URL('../..', import.meta.url));
@@ -9,6 +9,8 @@ export const DEFAULT_PLANNING_FILE = join(APP_ROOT, 'data', 'planning-board.json
 export const PLANNING_STATES = ['backlog', 'planned', 'in_progress', 'blocked', 'done', 'archived', 'canceled'];
 export const PLANNING_PRIORITIES = ['no_priority', 'low', 'medium', 'high', 'urgent'];
 export const PLANNING_ASSIGNEES = ['agent', 'human'];
+export const PLANNING_PROJECT_CATEGORIES = ['Distribution', 'Products', 'Trading', 'Freelance', 'Study', 'Other'];
+export const DEFAULT_PROJECT_CATEGORY = 'Other';
 
 function emptyBoard() {
   return { version: 2, nextGoalId: 1, projects: [], goals: [], updatedAt: new Date().toISOString() };
@@ -49,13 +51,12 @@ function cleanText(value, { required = false, label = 'Value' } = {}) {
   return result;
 }
 
+// Directories are free-form: the path does not need to exist on disk, and it can be
+// left empty entirely. It is only expanded (~) and resolved into an absolute path.
 function expandDirectory(directory) {
-  const value = cleanText(directory, { required: true, label: 'Directory' });
+  const value = cleanText(directory);
+  if (!value) return '';
   const expanded = value === '~' ? homedir() : value.startsWith('~/') ? join(homedir(), value.slice(2)) : value;
-  if (!isAbsolute(expanded)) {
-    const suggestion = value.startsWith('home/') ? `/${value}` : `~/${value.replace(/^\.\//, '')}`;
-    throw new Error(`Directory must be an absolute or ~/ path. Did you mean “${suggestion}”?`);
-  }
   return resolve(expanded);
 }
 
@@ -66,18 +67,18 @@ function persistDirectory(directory) {
     : directory;
 }
 
-async function assertDirectory(directory) {
-  const normalized = expandDirectory(directory);
-  try {
-    await access(normalized);
-  } catch (error) {
-    if (error.code === 'ENOENT') throw new Error(`Directory does not exist: ${normalized}`);
-    throw error;
-  }
-  const details = await stat(normalized);
-  if (!details.isDirectory()) throw new Error('Directory must point to a folder on disk');
-  return normalized;
+function loadedProjectCategory(value) {
+  const category = typeof value === 'string' ? value.trim() : '';
+  return PLANNING_PROJECT_CATEGORIES.includes(category) ? category : DEFAULT_PROJECT_CATEGORY;
 }
+
+function requiredProjectCategory(value, fallback = DEFAULT_PROJECT_CATEGORY) {
+  if (value === undefined) return fallback;
+  const category = typeof value === 'string' ? value.trim() : '';
+  if (!PLANNING_PROJECT_CATEGORIES.includes(category)) throw new Error('Invalid project category');
+  return category;
+}
+
 
 export async function loadPlanningBoard({ filePath = DEFAULT_PLANNING_FILE } = {}) {
   try {
@@ -89,7 +90,11 @@ export async function loadPlanningBoard({ filePath = DEFAULT_PLANNING_FILE } = {
       version: 2,
       nextGoalId: normalizedGoals.nextGoalId,
       projects: Array.isArray(board.projects)
-        ? board.projects.map((project) => ({ ...project, directory: expandDirectory(project.directory) }))
+        ? board.projects.map((project) => ({
+          ...project,
+          directory: expandDirectory(project.directory),
+          category: loadedProjectCategory(project.category),
+        }))
         : [],
       goals: normalizedGoals.goals.map((goal) => ({
         ...goal,
@@ -125,8 +130,8 @@ async function savePlanningBoard(board, { filePath = DEFAULT_PLANNING_FILE } = {
 
 export async function createPlanningProject(input, options = {}) {
   const board = await loadPlanningBoard(options);
-  const directory = await assertDirectory(input.directory);
-  if (board.projects.some((project) => project.directory === directory)) {
+  const directory = expandDirectory(input.directory);
+  if (directory && board.projects.some((project) => project.directory === directory)) {
     throw new Error('A project already uses this directory');
   }
   const now = new Date().toISOString();
@@ -136,6 +141,7 @@ export async function createPlanningProject(input, options = {}) {
     description: cleanText(input.description),
     directory,
     color: /^#[0-9a-f]{6}$/i.test(input.color ?? '') ? input.color : '#5ad9ca',
+    category: requiredProjectCategory(input.category),
     hiddenFromAll: Boolean(input.hiddenFromAll),
     createdAt: now,
     updatedAt: now,
@@ -149,8 +155,8 @@ export async function updatePlanningProject(projectId, input, options = {}) {
   const index = board.projects.findIndex((project) => project.id === projectId);
   if (index < 0) throw new Error('Project not found');
   const current = board.projects[index];
-  const directory = input.directory === undefined ? current.directory : await assertDirectory(input.directory);
-  if (board.projects.some((project) => project.id !== projectId && project.directory === directory)) {
+  const directory = input.directory === undefined ? current.directory : expandDirectory(input.directory);
+  if (directory && board.projects.some((project) => project.id !== projectId && project.directory === directory)) {
     throw new Error('A project already uses this directory');
   }
   const project = {
@@ -159,6 +165,7 @@ export async function updatePlanningProject(projectId, input, options = {}) {
     description: input.description === undefined ? current.description : cleanText(input.description),
     directory,
     color: /^#[0-9a-f]{6}$/i.test(input.color ?? '') ? input.color : current.color,
+    category: requiredProjectCategory(input.category, current.category),
     hiddenFromAll: input.hiddenFromAll === undefined ? current.hiddenFromAll : Boolean(input.hiddenFromAll),
     updatedAt: new Date().toISOString(),
   };

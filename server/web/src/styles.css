@@ -584,10 +584,18 @@ svg { width: 1rem; height: 1rem; stroke-width: 2; }
   gap: 16px; align-items: stretch; margin-bottom: 18px;
 }
 .project-switcher {
-  display: flex; gap: 6px; min-width: 0; overflow-x: auto; padding: 7px;
+  display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 10px; min-width: 0; overflow-x: auto; padding: 7px;
   border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--bg-elevated);
   scrollbar-width: thin;
 }
+.project-category-group {
+  display: flex; flex-direction: column; gap: 4px; min-width: 0;
+}
+.project-category-heading {
+  margin: 0; padding: 0 6px; color: var(--fg-tertiary);
+  font-size: .6875rem; font-weight: 600; letter-spacing: .02em;
+}
+.project-category-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
 .project-switcher button, .project-switcher .project-tab {
   display: flex; align-items: center; flex: 0 0 auto; gap: 10px; min-width: 162px; height: 54px;
   padding: 6px 12px; border: 1px solid transparent; border-radius: var(--radius);

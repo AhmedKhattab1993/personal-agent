@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 
 import {
+  PLANNING_PROJECT_CATEGORIES,
   createPlanningGoal,
   createPlanningProject,
   deletePlanningGoal,
@@ -285,21 +286,24 @@ test('stores home-relative project directories portably', async (context) => {
   assert.equal(loaded.projects[0].directory, homedir());
 });
 
-test('rejects project paths that are not existing directories', async (context) => {
+test('accepts project paths that do not exist on disk', async (context) => {
   const directory = await mkdtemp(join(tmpdir(), 'planning-board-'));
   context.after(() => rm(directory, { recursive: true, force: true }));
   const missing = join(directory, 'missing');
-  await assert.rejects(
-    createPlanningProject({ name: 'Missing', directory: missing }, { filePath: join(directory, 'planning.json') }),
-    new RegExp(`Directory does not exist: ${missing}`),
-  );
+  const { project } = await createPlanningProject({ name: 'Missing', directory: missing }, { filePath: join(directory, 'planning.json') });
+  assert.equal(project.directory, missing);
 });
 
-test('rejects relative project paths with a correction instead of resolving from the server directory', async () => {
-  await assert.rejects(
-    createPlanningProject({ name: 'Missing slash', directory: 'home/ahmed/projects/example' }),
-    /Directory must be an absolute or ~\/ path\. Did you mean “\/home\/ahmed\/projects\/example”\?/,
-  );
+test('accepts relative project paths and directories left empty', async (context) => {
+  const directory = await mkdtemp(join(tmpdir(), 'planning-board-'));
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  const filePath = join(directory, 'planning.json');
+  const relative = (await createPlanningProject({ name: 'Relative', directory: '~/projects/example' }, { filePath })).project;
+  assert.equal(relative.directory, join(homedir(), 'projects/example'));
+  const empty = (await createPlanningProject({ name: 'No directory' }, { filePath })).project;
+  assert.equal(empty.directory, '');
+  // Two projects may both have no directory; the duplicate check only applies to real paths.
+  await createPlanningProject({ name: 'Also no directory', directory: '' }, { filePath });
 });
 
 test('reorders a goal upward within the same status', async (context) => {
@@ -423,4 +427,76 @@ test('preserves ordering on metadata-only update without position', async (conte
   assert.deepEqual(siblings, [g1.id, g2.id, g3.id]);
   const goal2 = moved.board.goals.find((g) => g.id === g2.id);
   assert.equal(goal2.title, 'B-updated');
+});
+
+test('persists allowed project categories, rejects unknown values, and loads missing as Other', async (context) => {
+  const directory = await mkdtemp(join(tmpdir(), 'planning-board-'));
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  const filePath = join(directory, 'planning.json');
+
+  const createdByCategory = [];
+  for (const category of PLANNING_PROJECT_CATEGORIES) {
+    const created = await createPlanningProject({
+      name: category,
+      directory: join(directory, category.toLowerCase()),
+      category,
+    }, { filePath });
+    assert.equal(created.project.category, category);
+    createdByCategory.push(created.project);
+  }
+
+  const omitted = await createPlanningProject({ name: 'No category given' }, { filePath });
+  assert.equal(omitted.project.category, 'Other');
+
+  const reloaded = await loadPlanningBoard({ filePath });
+  for (const project of createdByCategory) {
+    assert.equal(reloaded.projects.find((item) => item.id === project.id).category, project.category);
+  }
+  assert.equal(reloaded.projects.find((item) => item.id === omitted.project.id).category, 'Other');
+
+  const updated = await updatePlanningProject(createdByCategory[0].id, { category: 'Study' }, { filePath });
+  assert.equal(updated.project.category, 'Study');
+  const afterUpdate = await loadPlanningBoard({ filePath });
+  assert.equal(afterUpdate.projects.find((item) => item.id === createdByCategory[0].id).category, 'Study');
+
+  const preserved = await updatePlanningProject(createdByCategory[1].id, { description: 'unchanged category' }, { filePath });
+  assert.equal(preserved.project.category, createdByCategory[1].category);
+
+  await assert.rejects(
+    createPlanningProject({ name: 'Bad create', category: 'Hobby' }, { filePath }),
+    /Invalid project category/,
+  );
+  await assert.rejects(
+    updatePlanningProject(createdByCategory[1].id, { category: 'Hobby' }, { filePath }),
+    /Invalid project category/,
+  );
+  await assert.rejects(
+    createPlanningProject({ name: 'Blank category', category: '   ' }, { filePath }),
+    /Invalid project category/,
+  );
+
+  const board = await loadPlanningBoard({ filePath });
+  board.projects.push({
+    id: 'legacy-project',
+    name: 'Legacy',
+    description: '',
+    directory: '',
+    color: '#5ad9ca',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+  });
+  board.projects.push({
+    id: 'blank-category-project',
+    name: 'Blank stored',
+    description: '',
+    directory: '',
+    color: '#5ad9ca',
+    category: '  ',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+  });
+  await writeFile(filePath, JSON.stringify(board), 'utf8');
+  const legacyLoad = await loadPlanningBoard({ filePath });
+  assert.equal(legacyLoad.projects.find((item) => item.id === 'legacy-project').category, 'Other');
+  assert.equal(legacyLoad.projects.find((item) => item.id === 'blank-category-project').category, 'Other');
 });

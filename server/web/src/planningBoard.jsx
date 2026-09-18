@@ -17,6 +17,7 @@ import {
   prioritizeSameProject,
   wouldCreateCycle,
 } from './planningDependencies.js';
+import { PROJECT_CATEGORIES, groupProjectsByCategory, normalizeProjectCategory } from './planningProjects.js';
 
 const STATES = [
   { id: 'backlog', label: 'Backlog', icon: Archive, color: '#78909d' },
@@ -39,7 +40,7 @@ const ASSIGNEES = [
   { id: 'human', label: 'Human' },
 ];
 
-const EMPTY_PROJECT = { name: '', description: '', directory: '', color: '#5ad9ca', hiddenFromAll: false };
+const EMPTY_PROJECT = { name: '', description: '', directory: '', color: '#5ad9ca', category: 'Other', hiddenFromAll: false };
 const EMPTY_GOAL = { projectId: '', title: '', outcome: '', completionCriteria: '', nonGoals: '', notes: '', priority: 'no_priority', status: 'backlog', assignee: 'human', dependsOn: [] };
 const GOAL_FIELDS = ['title', 'outcome', 'completionCriteria', 'nonGoals', 'priority', 'status', 'assignee'];
 
@@ -242,6 +243,7 @@ export default function PlanningBoard({ navigation }) {
   useEffect(() => { loadBoard(); }, []);
 
   const projectMap = useMemo(() => Object.fromEntries(board.projects.map((project) => [project.id, project])), [board.projects]);
+  const projectGroups = useMemo(() => groupProjectsByCategory(board.projects), [board.projects]);
   const hiddenProjectIds = useMemo(() => new Set(board.projects.filter((project) => project.hiddenFromAll).map((project) => project.id)), [board.projects]);
   const visibleGoals = useMemo(() => board.goals.filter((goal) => {
     if (['archived', 'canceled'].includes(goal.status)) return false;
@@ -336,7 +338,7 @@ export default function PlanningBoard({ navigation }) {
 
   function openProject(project = null) {
     setEditingProject(project);
-    setProjectForm(project ? { name: project.name, description: project.description, directory: project.directory, color: project.color, hiddenFromAll: project.hiddenFromAll ?? false } : EMPTY_PROJECT);
+    setProjectForm(project ? { name: project.name, description: project.description, directory: project.directory, color: project.color, category: normalizeProjectCategory(project.category), hiddenFromAll: project.hiddenFromAll ?? false } : EMPTY_PROJECT);
     setProjectDialog(true);
   }
 
@@ -370,6 +372,7 @@ export default function PlanningBoard({ navigation }) {
     const sourceIndex = board.projects.findIndex((project) => project.id === projectId);
     const targetIndex = board.projects.findIndex((project) => project.id === targetId);
     if (sourceIndex < 0 || targetIndex < 0) return;
+    if (normalizeProjectCategory(board.projects[sourceIndex].category) !== normalizeProjectCategory(board.projects[targetIndex].category)) return;
     const projects = [...board.projects];
     const [project] = projects.splice(sourceIndex, 1);
     projects.splice(targetIndex, 0, project);
@@ -432,7 +435,7 @@ export default function PlanningBoard({ navigation }) {
         </header>
 
         <section className="planning-hero">
-          <div><Badge className="signal-badge"><Target /> Outcome planning</Badge><h1>Plan the <em>destination.</em><br />Let agents find the route.</h1><p>Define what must be true when work is complete, anchor it to a real project directory, and keep implementation details out of the brief.</p></div>
+          <div><Badge className="signal-badge"><Target /> Outcome planning</Badge><h1>Plan the <em>destination.</em><br />Let agents find the route.</h1><p>Define what must be true when work is complete, anchor it to a project directory, and keep implementation details out of the brief.</p></div>
           <div className="planning-summary">
             <div><span>Ready</span><strong>{readyCount}</strong><small>clear to pick up</small></div>
             <div><span>In flight</span><strong>{activeCount}</strong><small>being executed</small></div>
@@ -445,17 +448,24 @@ export default function PlanningBoard({ navigation }) {
         <section className="planning-toolbar">
           <div className="project-switcher">
             <button className={projectFilter === 'all' ? 'active' : ''} onClick={() => setProjectFilter('all')}><span className="project-avatar all"><FolderGit2 /></span><span className="project-label"><strong>All projects</strong><small>{board.projects.length} linked directories</small></span></button>
-            {board.projects.map((project) => <div
-              key={project.id}
-              className={`project-tab ${projectFilter === project.id ? 'active' : ''} ${draggedProject === project.id ? 'dragging' : ''}`}
-              draggable
-              onDragStart={(event) => { setDraggedProject(project.id); event.dataTransfer.effectAllowed = 'move'; }}
-              onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; }}
-              onDrop={(event) => { event.preventDefault(); moveProject(draggedProject, project.id); setDraggedProject(null); }}
-              onDragEnd={() => setDraggedProject(null)}
-              onClick={() => setProjectFilter(project.id)}
-              title="Drag to reorder · click to filter"
-            ><GripVertical className="project-drag-handle" /><span className="project-avatar" style={{ '--project-color': project.color }}>{initials(project.name)}</span><span className="project-label"><strong>{project.name}</strong><small>{board.goals.filter((goal) => goal.projectId === project.id && !['done', 'archived', 'canceled'].includes(goal.status)).length} open goals</small></span><span className="project-tab-actions"><button type="button" className="project-tab-edit" title={`Edit ${project.name}`} aria-label={`Edit ${project.name}`} onClick={(event) => { event.stopPropagation(); openProject(project); }}><Pencil /></button><button type="button" className="project-tab-delete" title={`Delete ${project.name}`} aria-label={`Delete ${project.name}`} onClick={(event) => { event.stopPropagation(); deleteProject(project); }}><Trash2 /></button></span></div>)}
+            {projectGroups.map((group) => (
+              <div key={group.category} className="project-category-group">
+                <h3 className="project-category-heading">{group.category}</h3>
+                <div className="project-category-tabs">
+                  {group.projects.map((project) => <div
+                    key={project.id}
+                    className={`project-tab ${projectFilter === project.id ? 'active' : ''} ${draggedProject === project.id ? 'dragging' : ''}`}
+                    draggable
+                    onDragStart={(event) => { setDraggedProject(project.id); event.dataTransfer.effectAllowed = 'move'; }}
+                    onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; }}
+                    onDrop={(event) => { event.preventDefault(); moveProject(draggedProject, project.id); setDraggedProject(null); }}
+                    onDragEnd={() => setDraggedProject(null)}
+                    onClick={() => setProjectFilter(project.id)}
+                    title="Drag to reorder within this category · click to filter"
+                  ><GripVertical className="project-drag-handle" /><span className="project-avatar" style={{ '--project-color': project.color }}>{initials(project.name)}</span><span className="project-label"><strong>{project.name}</strong><small>{board.goals.filter((goal) => goal.projectId === project.id && !['done', 'archived', 'canceled'].includes(goal.status)).length} open goals</small></span><span className="project-tab-actions"><button type="button" className="project-tab-edit" title={`Edit ${project.name}`} aria-label={`Edit ${project.name}`} onClick={(event) => { event.stopPropagation(); openProject(project); }}><Pencil /></button><button type="button" className="project-tab-delete" title={`Delete ${project.name}`} aria-label={`Delete ${project.name}`} onClick={(event) => { event.stopPropagation(); deleteProject(project); }}><Trash2 /></button></span></div>)}
+                </div>
+              </div>
+            ))}
             <button className="add-project" onClick={() => openProject()}><Plus /> Link project</button>
           </div>
           <div className="board-controls"><div className="search-wrap"><Search /><Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search outcomes or criteria…" />{query && <button onClick={() => setQuery('')}><X /></button>}</div><div className="view-toggle" role="group" aria-label="Board view">
@@ -465,7 +475,7 @@ export default function PlanningBoard({ navigation }) {
         </section>
 
         {loading ? <div className="loading-state"><Clock3 /><span>Loading the local plan…</span></div> : board.projects.length === 0 ? (
-          <section className="planning-empty"><div className="empty-orbit"><Folder /></div><span className="section-kicker">Start with repository truth</span><h2>Link your first project directory</h2><p>Every goal belongs to a real folder so an agent knows exactly where to begin—without baking the implementation into the plan.</p><Button onClick={() => openProject()}><Plus /> Link project</Button></section>
+          <section className="planning-empty"><div className="empty-orbit"><Folder /></div><span className="section-kicker">Start with repository truth</span><h2>Add your first project</h2><p>Every goal belongs to a project so an agent knows exactly where to begin—without baking the implementation into the plan.</p><Button onClick={() => openProject()}><Plus /> Link project</Button></section>
         ) : (
           <section className="kanban-board" aria-label="Goal board">
             {STATES.map((state) => {
@@ -532,14 +542,15 @@ export default function PlanningBoard({ navigation }) {
       <Dialog open={projectDialog}>
         <DialogContent className="planning-dialog">
           <form onSubmit={submitProject}>
-            <DialogHeader className="planning-dialog-header"><button type="button" className="dialog-close" onClick={() => setProjectDialog(false)}><X /></button><span className="section-kicker">Local project</span><DialogTitle>{editingProject ? 'Project settings' : 'Link a directory'}</DialogTitle><p>The path is validated on this machine and becomes the working directory in every agent brief.</p></DialogHeader>
+            <DialogHeader className="planning-dialog-header"><button type="button" className="dialog-close" onClick={() => setProjectDialog(false)}><X /></button><span className="section-kicker">Local project</span><DialogTitle>{editingProject ? 'Project settings' : 'Link a directory'}</DialogTitle><p>The path becomes the working directory in every agent brief. It can point to a folder that doesn’t exist yet, or be left empty.</p></DialogHeader>
             <DialogBody className="planning-form">
               <div className="form-grid"><Field label="Project name"><Input autoFocus required value={projectForm.name} onChange={(event) => setProjectForm({ ...projectForm, name: event.target.value })} placeholder="e.g. Personal Agent" /></Field><Field label="Accent color"><input className="color-input" type="color" value={projectForm.color} onChange={(event) => setProjectForm({ ...projectForm, color: event.target.value })} /></Field></div>
-              <Field label="Directory on disk" hint="Choose a folder or enter an absolute path (starting with /) or a ~/ path."><div className="path-input"><Folder /><Input required value={projectForm.directory} onChange={(event) => setProjectForm({ ...projectForm, directory: event.target.value })} placeholder="~/projects/my-project" /><button type="button" className="choose-directory-button" onClick={chooseProjectDirectory} aria-label="Choose directory" title="Choose directory"><FolderOpen /></button></div></Field>
+              <Field label="Category"><Select value={projectForm.category} onChange={(event) => setProjectForm({ ...projectForm, category: event.target.value })}>{PROJECT_CATEGORIES.map((category) => <option key={category} value={category}>{category}</option>)}</Select></Field>
+              <Field label="Directory" hint="Optional. Any path works—even one that doesn’t exist yet."><div className="path-input"><Folder /><Input value={projectForm.directory} onChange={(event) => setProjectForm({ ...projectForm, directory: event.target.value })} placeholder="~/projects/my-project" /><button type="button" className="choose-directory-button" onClick={chooseProjectDirectory} aria-label="Choose directory" title="Choose directory"><FolderOpen /></button></div></Field>
               <Field label="Project context" hint="Optional orientation only—keep individual work in goal cards."><textarea value={projectForm.description} onChange={(event) => setProjectForm({ ...projectForm, description: event.target.value })} placeholder="What this project exists to accomplish…" /></Field>
               {editingProject && <label className="checkbox-field"><input type="checkbox" checked={!!projectForm.hiddenFromAll} onChange={(event) => setProjectForm({ ...projectForm, hiddenFromAll: event.target.checked })} /><span>Hide from the All-projects overview<small>The project keeps its own tab; its goals just stay out of the aggregate columns and counts.</small></span></label>}
             </DialogBody>
-            <DialogFooter className={editingProject ? 'goal-dialog-footer' : ''}>{editingProject && <Button type="button" variant="ghost" className="danger-button" onClick={() => deleteProject(editingProject)}><Trash2 /> Delete</Button>}{editingProject && <span />}<Button type="button" variant="ghost" onClick={() => setProjectDialog(false)}>Cancel</Button><Button disabled={saving}>{saving ? 'Validating…' : editingProject ? 'Save project' : 'Link project'} <ArrowRight /></Button></DialogFooter>
+            <DialogFooter className={editingProject ? 'goal-dialog-footer' : ''}>{editingProject && <Button type="button" variant="ghost" className="danger-button" onClick={() => deleteProject(editingProject)}><Trash2 /> Delete</Button>}{editingProject && <span />}<Button type="button" variant="ghost" onClick={() => setProjectDialog(false)}>Cancel</Button><Button disabled={saving}>{saving ? 'Saving…' : editingProject ? 'Save project' : 'Link project'} <ArrowRight /></Button></DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
